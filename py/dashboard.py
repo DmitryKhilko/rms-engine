@@ -40,7 +40,7 @@ from pathlib import Path
 from common import Feature, load, read, registry, rel, save, sf_title
 from config import (ACCEPTANCE_MARK, ANCHOR_RE, ARCHIVED_STATUS, ATTENTION_DIRS, CHANGES_LIMIT, DASHBOARD_BEGIN,
                     DASHBOARD_END, DASHBOARD_PAGE, DASHBOARD_RE, DOCS_DIR, DONE_STATUS, FR_FILE, FR_HEADING_RE,
-                    GLOBAL_SF_DIR, HEADING_ANCHOR_RE, INDEX_NAME, INLINE_LINK_RE, JOURNAL_ENTRY_RE, NOTE_FINAL,
+                    FEATURE_TITLE_RE, GLOBAL_SF_DIR, HEADING_ANCHOR_RE, INDEX_NAME, INLINE_LINK_RE, JOURNAL_ENTRY_RE, NOTE_FINAL,
                     NOTE_KINDS, NOTE_OWNER_RE, NOTE_RE, NOTE_STATUS_RE, PRIORITY_ORDER, REF_LINK_RE, REGISTRY_DIR,
                     REQUIREMENT_ID_RE, SF_STATUSES, STATUS_CSS, STATUS_DESCRIPTIONS, STATUS_ICONS)
 
@@ -96,6 +96,18 @@ def statuses_info() -> list[str]:
             "</details>", ""]
 
 
+def feature_link(f: Feature) -> str:
+    """Название фичи — ссылка Markdown на требование F в её index.md (раздел «## F-…. Название {#…}»)."""
+    text = read(f.index)
+    found = FEATURE_TITLE_RE.search(text)
+    anchor = None
+    if found:
+        line_end = text.find("\n", found.start())
+        heading = HEADING_ANCHOR_RE.search(text, found.start(), len(text) if line_end < 0 else line_end + 1)
+        anchor = heading.group("id") if heading else None
+    return link(f.index, anchor, f.title, as_code=False)
+
+
 def progress_block(features: list[Feature]) -> list[str]:
     order = [s for s in SF_STATUSES if s != ARCHIVED_STATUS]
     rows = []
@@ -106,13 +118,13 @@ def progress_block(features: list[Feature]) -> list[str]:
         segments = "".join(f'<span class="dash-{STATUS_CSS[s]}" style="width:{counts[s] * 100 / len(active):.4g}%" '
                            f'title="{esc(s)}: {counts[s]}"></span>' for s in order if counts[s]) if active else ""
         info = f"{f.status} · {len(active)} SF" if f.status else "нет SF"
-        rows.append(f'<div class="dash-progress__row"><div class="dash-progress__title">{esc(f.title)}'
-                    f'<small>{esc(info)}</small></div><div class="dash-bar">{segments}</div>'
+        rows.append(f'<div class="dash-progress__row" markdown="block"><div class="dash-progress__title" markdown="span">'
+                    f'{feature_link(f)}<small>{esc(info)}</small></div><div class="dash-bar">{segments}</div>'
                     f'<div class="dash-progress__done">реализовано <b>{done} из {len(active)}</b></div></div>')
     legend = "".join(f'<span class="dash-{STATUS_CSS[s]}"><i></i>{esc(s)}</span>' for s in order)
     return ["## Прогресс по F {#dash-progress}", "",
             "Доля SF, включенных в F, в каждом статусе; SF в архиве не учитываются.", "",
-            '<div class="dash-progress">' + "".join(rows) + "</div>", "",
+            '<div class="dash-progress" markdown="block">' + "".join(rows) + "</div>", "",
             f'<div class="dash-legend">{legend}</div>', ""]
 
 
