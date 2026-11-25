@@ -14,10 +14,10 @@
 Как собирается меню (названия и порядок — py/config.py движка; настроек в репозитории продукта нет)
 -----------------------------------------------------------------------------------------------
 * Неизменная часть меню — список NAV (стандартная структура docs/): страниц, которых у продукта нет, в меню нет.
-  Вместо элемента REGISTRY подставляется группа реестра «Требования к продукту», вместо GLOBAL_SF — группа
-  «Глобальные функциональности» (папки GLOBAL_SF_DIR с приставкой GLOBAL_SF_PREFIX по полю `order` их index.md, затем
-  по имени папки; название — текст после ID в заголовке SF их index.md; файлы внутри — по FILE_TITLES, как у
-  подфункциональностей реестра).
+  Вместо элемента REGISTRY подставляется группа реестра «Требования к продукту», вместо GLOBAL_SF — пункты
+  глобальных функциональностей, без своей группы (папки GLOBAL_SF_DIR с приставкой GLOBAL_SF_PREFIX по полю `order`
+  их index.md, затем по имени папки; название — текст после ID в заголовке SF их index.md; файлы внутри —
+  по FILE_TITLES, как у подфункциональностей реестра).
 * Группа реестра: индекс папки REGISTRY_DIR, пункты REGISTRY_LEAD («Глобальные требования»), затем фичи — подпапки
   с index.md, по полю `order` их index.md, затем по имени папки. Название фичи — текст после ID в заголовке F в её index.md («## F-PT. Справочник видов изделий»;
   запасные варианты — заголовок первого уровня, имя папки).
@@ -42,7 +42,7 @@ from pathlib import Path
 
 from common import dict_key, feature_order, registry, rel, sf_title
 from config import (DOCS_DIR, FEATURE_FILE_PREFIX, FILE_TITLES, FOLDER_TITLES, GLOBAL_SF, GLOBAL_SF_DIR,
-                    GLOBAL_SF_PREFIX, GLOBAL_SF_TITLE, INDEX_NAME, NAV, NAV_BEGIN, NAV_END, NAV_RE,
+                    GLOBAL_SF_PREFIX, INDEX_NAME, NAV, NAV_BEGIN, NAV_END, NAV_RE,
                     REGISTRY, REGISTRY_DIR, REGISTRY_LEAD, REGISTRY_TITLE, ZENSICAL_CONFIG)
 
 
@@ -94,11 +94,12 @@ def registry_group(warnings: list[str]) -> tuple[str, list]:
     return REGISTRY_TITLE, items
 
 
-def global_sf_group(warnings: list[str]) -> tuple[str, list]:
-    """Группа «Глобальные функциональности»: папки GLOBAL_SF_DIR с приставкой GLOBAL_SF_PREFIX и index.md."""
+def global_sf_items(warnings: list[str]) -> list:
+    """Пункты глобальных функциональностей: папки GLOBAL_SF_DIR с приставкой GLOBAL_SF_PREFIX и index.md."""
     root = DOCS_DIR / GLOBAL_SF_DIR
     folders = [p for p in root.glob(GLOBAL_SF_PREFIX + "*") if p.is_dir() and (p / INDEX_NAME).is_file()]
     items: list = []
+
     def key(folder: Path) -> tuple:
         order = feature_order(folder / INDEX_NAME)
         return order is None, order or 0, folder.name
@@ -110,11 +111,12 @@ def global_sf_group(warnings: list[str]) -> tuple[str, list]:
             warnings.append(f"{rel(folder)}/{INDEX_NAME}: нет заголовка «## SF-G-…. Название» — в меню «{folder.name}»")
         children = folder_items(folder, "", warnings)
         items.append((title, children[0]) if children == [rel(folder / INDEX_NAME)] else (title, children))
-    return GLOBAL_SF_TITLE, items
+    return items
 
 
 def expand(items: list, warnings: list[str]) -> list:
-    """Неизменная часть меню (NAV) с группами на местах REGISTRY и GLOBAL_SF; страниц, которых нет, в меню нет."""
+    """Неизменная часть меню (NAV): группа реестра на месте REGISTRY, глобальные функциональности на месте GLOBAL_SF;
+    страниц, которых нет, в меню нет."""
     result: list = []
     for item in items:
         if item == REGISTRY:
@@ -122,9 +124,7 @@ def expand(items: list, warnings: list[str]) -> list:
             if children:
                 result.append((title, children))
         elif item == GLOBAL_SF:
-            title, children = global_sf_group(warnings)
-            if children:
-                result.append((title, children))
+            result += global_sf_items(warnings)
         elif isinstance(item, str):
             if (DOCS_DIR / item).is_file():
                 result.append(item)

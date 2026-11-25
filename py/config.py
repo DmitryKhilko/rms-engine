@@ -77,7 +77,7 @@ SITE_RE = re.compile(re.escape(SITE_BEGIN_PREFIX) + r"[^\n]*\n.*?" + re.escape(S
 # ===========================================================================
 # Блок `nav = [...]` в zensical.toml между маркерами NAV_BEGIN и NAV_END целиком формирует nav.py. Неизменная часть меню
 # задаётся списком NAV ниже, а вместо элемента REGISTRY скрипт подставляет группу реестра, собранную по папкам
-# REGISTRY_DIR, вместо GLOBAL_SF — группу глобальных функциональностей из папок GLOBAL_SF_DIR. Пути страниц —
+# REGISTRY_DIR, вместо GLOBAL_SF — пункты глобальных функциональностей из папок GLOBAL_SF_DIR. Пути страниц —
 # относительно docs/. Страницы, которой нет в docs/ продукта, в меню просто нет; группа без страниц тоже не выводится.
 
 NAV_BEGIN = "# BEGIN GENERATED NAV — не редактируйте вручную"
@@ -88,7 +88,7 @@ NAV_RE = re.compile(re.escape(NAV_BEGIN_PREFIX) + r"[^\n]*\n.*?" + re.escape(NAV
 
 # Место группы реестра в NAV
 REGISTRY = "<REGISTRY>"
-# Место группы глобальных функциональностей в NAV
+# Место пунктов глобальных функциональностей в NAV (без своей группы)
 GLOBAL_SF = "<GLOBAL_SF>"
 
 # Неизменная часть меню — стандартная структура docs/. Элемент: ("Название", "путь.md") — страница; ("Название",
@@ -114,9 +114,9 @@ REGISTRY_LEAD = [
     ("Глобальные требования", [
         "requirements/global/index.md",
         ("Дизайн-система", "requirements/global/design-system/index.md"),
-        ("Требования к API", "requirements/global/ar.md"),
-        ("Нефункциональные требования", "requirements/global/nfr.md"),
-        ("Системные требования", "requirements/global/sr.md"),
+        ("Глобальные AR", "requirements/global/ar.md"),
+        ("Глобальные NFR", "requirements/global/nfr.md"),
+        ("Глобальные SR", "requirements/global/sr.md"),
         GLOBAL_SF,
     ]),
 ]
@@ -157,10 +157,10 @@ FILE_TITLES = {
 # Приставка к названию файла, лежащего прямо в папке фичи (общие требования фичи): «Общие UC», «Общие DR»…
 FEATURE_FILE_PREFIX = "Общие "
 
-# --- Группа глобальных функциональностей ---
-# Подпапки GLOBAL_SF_DIR с приставкой GLOBAL_SF_PREFIX и файлом index.md — глобальные функциональности. Внутри — как
-# у подфункциональности реестра: index.md, затем файлы по FILE_TITLES («DR», «FR», «UI»…).
-GLOBAL_SF_TITLE = "Глобальные функциональности"
+# --- Глобальные функциональности ---
+# Подпапки GLOBAL_SF_DIR с приставкой GLOBAL_SF_PREFIX и файлом index.md — глобальные функциональности. В меню они идут
+# на месте GLOBAL_SF прямо в группе «Глобальные требования», без своей группы. Внутри — как у подфункциональности
+# реестра: index.md, затем файлы по FILE_TITLES («DR», «FR», «UI»…).
 GLOBAL_SF_DIR = "requirements/global"
 GLOBAL_SF_PREFIX = "sf-g-"
 # Название в меню — текст после ID в заголовке SF в index.md папки («## SF-G-PAG. Пагинация {#sf-g-pag}»), иначе имя
