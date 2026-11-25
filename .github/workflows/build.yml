@@ -1,0 +1,173 @@
+name: rms-build
+
+# Общий (переиспользуемый) workflow движка rms-engine. Его вызывает workflow репозитория продукта:
+#
+#   jobs:
+#     ci:
+#       uses: OwnerName/rms-engine/.github/workflows/build.yml@v1
+#       with:
+#         engine_ref: v1          # та же версия движка, что в строке uses
+#       permissions: { contents: write, pages: write, id-token: write }
+#
+# Выполняется в контексте репозитория продукта (github.repository — продукт). Одно задание, шаги идут подряд:
+#   1) скачать репозиторий продукта (с полной историей) и движок (в папку engine/);
+#   2) обновить общие настройки сайта в zensical.toml, пересчитать версии и журналы изменений, статусы, значки
+#      и приоритеты, собрать меню и дашборд (скрипты engine/py) и закоммитить изменённые файлы в main продукта;
+#   3) собрать сайт (тема — engine/custom) и опубликовать на GitHub Pages продукта.
+on:
+  workflow_call:
+    inputs:
+      engine_ref:
+        description: "Версия движка (тег или ветка) — та же, что в строке uses вызывающего workflow"
+        type: string
+        default: v1
+      engine_repository:
+        description: "Репозиторий движка"
+        type: string
+        default: OwnerName/rms-engine
+      python_version:
+        type: string
+        default: "3.14.10"
+      plantuml_version:
+        type: string
+        default: "1.2026.10"
+    secrets:
+      engine_token:
+        description: "Токен для скачивания движка, если его репозиторий приватный (для публичного не нужен)"
+        required: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    timeout-minutes: 20
+    # Одновременно — одна сборка продукта. Запущенную не прерываем (иначе её можно оборвать посреди коммита или
+    # публикации): новые ждут в очереди, из ожидающих остаётся только самый свежий запуск.
+    concurrency:
+      group: pages-${{ github.repository }}
+      cancel-in-progress: false
+    permissions:
+      contents: write   # push коммита со сгенерированными файлами
+      pages: write      # публикация GitHub Pages
+      id-token: write   # авторизация публикации
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url || steps.deployment_retry.outputs.page_url }}
+    env:
+      PYTHONDONTWRITEBYTECODE: "1"   # без папок __pycache__ рядом со скриптами
+    steps:
+      # Репозиторий продукта — в корень рабочей папки. Всегда самый свежий main (в нём может быть коммит CI от предыдущего
+      # запуска, иначе push был бы отклонён); полная история нужна для версий и журналов изменений.
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      # Движок — в папку engine/ (в .gitignore продукта, в коммиты не попадает)
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.engine_repository }}
+          ref: ${{ inputs.engine_ref }}
+          path: engine
+          token: ${{ secrets.engine_token || github.token }}
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - id: cache-week
+        run: echo "id=$(date --utc +'%V')" >> "$GITHUB_OUTPUT"
+      - uses: actions/cache@v6
+        with:
+          key: zensical-toml-${{ steps.cache-week.outputs.id }}
+          path: .cache
+          restore-keys: |
+            zensical-toml-
+
+      # uv ставится через pip (без сторонних действий), дальше пакеты ставит uv
+      - run: python -m pip install uv
+      - run: uv pip install --system -r engine/py/requirements.txt zensical
+
+      # PlantUML и Graphviz для диаграмм ```plantuml. Java уже есть на раннере: jar скачивается с GitHub, из apt ставится
+      # только Graphviz. Повторы и короткие таймауты: при сбое зеркал шаг падает быстро, а не висит минуты.
+      - name: Install PlantUML and Graphviz
+        timeout-minutes: 5
+        env:
+          PLANTUML_VERSION: ${{ inputs.plantuml_version }}
+        run: |
+          set -e
+          java -version
+          APT_OPTS="-o Acquire::Retries=3 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20"
+          sudo apt-get $APT_OPTS update || true
+          sudo apt-get $APT_OPTS install -y --no-install-recommends graphviz
+          sudo curl -fsSL --retry 3 -o /opt/plantuml.jar \
+            "https://github.com/plantuml/plantuml/releases/download/v${PLANTUML_VERSION}/plantuml-${PLANTUML_VERSION}.jar"
+          printf '#!/bin/sh\nexec java -Djava.awt.headless=true -jar /opt/plantuml.jar "$@"\n' | sudo tee /usr/local/bin/plantuml > /dev/null
+          sudo chmod +x /usr/local/bin/plantuml
+          dot -V
+          plantuml -version | head -2
+
+      # Скрипты движка запускаются из корня репозитория продукта: они работают с его docs/, zensical.toml и rms.toml.
+      # Общие настройки сайта (тема, расширения Markdown): блок BEGIN/END ENGINE SETTINGS в zensical.toml продукта
+      # переписывается из zensical.base.toml движка.
+      - name: Apply engine site settings
+        run: python engine/py/site_settings.py
+
+      # Версии и «Журнал изменений» по истории git (коммиты со [skip ci] и draft: в версиях не учитываются).
+      - name: Update versions and change history
+        run: python engine/py/changelog.py
+
+      # Поля priority, status и icon в метаданных F и SF; статус или приоритет не из списка — ошибка, публикации не будет.
+      - name: Update statuses, icons and priorities
+        run: python engine/py/status.py
+
+      # Меню сайта: блок nav в zensical.toml между маркерами BEGIN/END GENERATED NAV.
+      - name: Generate navigation
+        run: python engine/py/nav.py
+
+      # Дашборд реестра: блок между маркерами GENERATED DASHBOARD на странице реестра.
+      - name: Generate dashboard
+        run: python engine/py/dashboard.py
+
+      # Коммит от GITHUB_TOKEN не запускает новый workflow, поэтому цикла не возникает; [skip ci] — страховка и метка,
+      # по которой changelog.py не учитывает этот коммит. Если push не удался (кто-то успел запушить в main), шаг падает
+      # и публикация не выполняется.
+      - name: Commit generated docs
+        run: |
+          if [ -n "$(git status --porcelain docs zensical.toml)" ]; then
+            git config user.name  "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs zensical.toml
+            git commit -m "docs: автоматическое обновление настроек, версий, журналов, статусов, меню и дашборда [skip ci]"
+            git push origin HEAD:main
+          else
+            echo "Сформированные страницы без изменений."
+          fi
+
+      # Сборка сайта (тема — engine/custom, custom_dir в zensical.toml продукта). Zensical копирует в site/ всё
+      # содержимое custom_dir, кроме шаблонов; стили (css/) и скрипты страниц (js/) уже встроены в каждую страницу
+      # шаблоном main.html, поэтому их копии удаляются до загрузки сайта.
+      - name: Build site
+        run: |
+          zensical build --clean
+          rm -rf site/css site/js
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+      # Публикация. Иногда GitHub сразу после загрузки ещё «не видит» архив сайта (ошибка «No artifacts named
+      # github-pages»): тогда через 30 секунд выполняется вторая попытка.
+      - id: deployment
+        uses: actions/deploy-pages@v5
+        continue-on-error: true
+
+      - name: Wait before retrying deployment
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 30
+
+      - id: deployment_retry
+        if: steps.deployment.outcome == 'failure'
+        uses: actions/deploy-pages@v5

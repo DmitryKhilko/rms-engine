@@ -1,0 +1,36 @@
+{#-
+  «Паспорт» страницы: блок со значениями из метаданных (YAML Front Matter).
+  Подключается в custom/main.html (блок content) и выводится на каждой странице, в метаданных которой есть хотя бы одно
+  из полей priority, status, editor, version, task_id, release_id, release_date. Строки выводятся всегда, все семь;
+  пустое поле — пустое значение.
+
+    Приоритет    — priority (must, should, could, won't; у F вычисляется по её SF, пишет py/status.py)
+    Статус       — status: русское название статуса (его пишет py/status.py), первая буква — заглавная
+    Редактор     — editor
+    Версия       — version и в скобках version_datetime (если задано)
+    Задача       — task_id; ссылка task_url + task_id, адрес — [project.extra.tracker] task_url в zensical.toml
+                   (если адрес не задан — только номер)
+    Релиз        — release_id
+    Дата релиза  — release_date
+
+  В разметке блок стоит перед текстом страницы, под заголовок первого уровня его переносит custom/js/passport.js.
+  Оформление — custom/css/extra.css, раздел 11.
+  Новая строка паспорта: добавьте элемент div.page-passport__item по образцу ниже.
+  Шаблонизатор Zensical — MiniJinja: функции Python в шаблонах недоступны.
+-#}
+{% if page and page.meta %}
+  {% set meta = page.meta %}
+  {% if meta.priority is defined or meta.status is defined or meta.editor is defined or meta.version is defined or meta.task_id is defined
+        or meta.release_id is defined or meta.release_date is defined %}
+    {% set task_url = config.extra.tracker.task_url if config and config.extra and config.extra.tracker else none %}
+    <dl class="page-passport">
+      <div class="page-passport__item"><dt>Приоритет</dt><dd>{% if meta.priority %}{{ meta.priority }}{% endif %}</dd></div>
+      <div class="page-passport__item"><dt>Статус</dt><dd>{% if meta.status %}{{ meta.status | string | capitalize }}{% endif %}</dd></div>
+      <div class="page-passport__item"><dt>Редактор</dt><dd>{% if meta.editor %}{{ meta.editor }}{% endif %}</dd></div>
+      <div class="page-passport__item"><dt>Версия</dt><dd>{% if meta.version %}{{ meta.version }}{% if meta.version_datetime %} ({{ meta.version_datetime }}){% endif %}{% endif %}</dd></div>
+      <div class="page-passport__item"><dt>Задача</dt><dd>{% if meta.task_id %}{% if task_url %}<a href="{{ task_url }}{{ meta.task_id }}" target="_blank" rel="noopener">{{ meta.task_id }}</a>{% else %}{{ meta.task_id }}{% endif %}{% endif %}</dd></div>
+      <div class="page-passport__item"><dt>Релиз</dt><dd>{% if meta.release_id %}{{ meta.release_id }}{% endif %}</dd></div>
+      <div class="page-passport__item"><dt>Дата релиза</dt><dd>{% if meta.release_date %}{{ meta.release_date }}{% endif %}</dd></div>
+    </dl>
+  {% endif %}
+{% endif %}

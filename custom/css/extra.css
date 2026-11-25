@@ -1,0 +1,976 @@
+/* ==========================================================================
+   extra.css — дополнительные стили сайта
+
+   РАСПОЛОЖЕНИЕ
+     custom/css/extra.css
+
+   КАК ФАЙЛ ПОПАДАЕТ НА САЙТ
+     Файл встраивается в каждую страницу шаблоном custom/main.html (блок styles).
+     Каталог custom задан в zensical.toml в разделе [project.theme]: custom_dir = "custom".
+     В docs/ лежат только документы аналитиков, поэтому параметр extra_css
+     в zensical.toml не используется.
+
+   ВАЖНО: ОГРАНИЧЕНИЯ ШАБЛОНИЗАТОРА
+     Файл подключается как шаблон Jinja, поэтому в нём (в том числе в комментариях)
+     нельзя писать три сочетания символов Jinja: две открывающие фигурные скобки подряд,
+     фигурную скобку с процентом и фигурную скобку с решёткой.
+     Иначе сборка сайта упадёт или стили не применятся.
+
+   КАК ПОЛЬЗОВАТЬСЯ ЭТИМ ФАЙЛОМ
+     • Почти все настраиваемые значения вынесены в переменные (--имя: значение) в начале
+       каждого раздела. Чтобы поменять вид сайта, обычно достаточно изменить только их.
+     • После правки закоммитьте файл и дождитесь сборки; при локальном просмотре
+       обновите страницу с очисткой кэша (Ctrl+F5).
+     • Если правило «не срабатывает», значит, тема задаёт то же свойство с большей
+       специфичностью. Откройте инструменты разработчика (F12), наведите инспектор на
+       элемент и посмотрите, какое правило побеждает. Обычно помогает добавить !important
+       или более точный селектор.
+
+   ЕДИНИЦЫ ИЗМЕРЕНИЯ
+     rem — относительно размера шрифта страницы (обычно 1rem = 16px), не зависит от элемента;
+     em  — относительно размера шрифта текущего элемента, отступы подстраиваются под текст;
+     %   — доля от размера родителя.
+
+   РАЗДЕЛЫ ФАЙЛА
+     1. Цвета тёмной схемы slate (тёмно-синяя тема)
+     2. Окно предпросмотра ссылок data-preview в тёмной схеме
+     3. Плотность текста: межстрочный интервал, отступы абзацев и пунктов списков
+     4. Нумерованные списки: цифры на любом уровне вложенности
+     5. Левое и правое меню: расстояния между пунктами, скрытые значки статуса
+     6. Расстояние между горизонтальным меню (вкладками) и контентом
+     7. Ширина страницы, левого и правого меню, отступы контента
+     8. Диаграммы PlantUML по центру
+     9. Сворачивание разделов: стрелки в заголовках и полоса «Свернуть всё / Развернуть всё»
+    10. Правое меню «Содержание»: сворачивание вместе с разделами и стрелки
+    11. «Паспорт» страницы: приоритет, статус, редактор, версия, задача, релиз, дата релиза
+    12. Дашборд реестра требований (requirements/features/index.md)
+    13. Блоки примечаний (note, info, warning и др.) и сворачиваемые блоки: шрифт основного текста
+   ========================================================================== */
+
+
+/* --------------------------------------------------------------------------
+   1. ЦВЕТА ТЁМНОЙ СХЕМЫ SLATE
+
+   Селектор [data-md-color-scheme="slate"] срабатывает, только когда на сайте
+   включена тёмная тема (светлая схема "default" эти значения не затрагивает).
+   Здесь переопределяются переменные темы: меняя их, мы меняем цвет везде,
+   где тема на них ссылается.
+
+   Используются два цвета палитры:
+     #131720 — самый тёмный: основной фон страниц;
+     #212833 — чуть светлее: фон «деталей» (код, всплывающие окна).
+
+   Чтобы сменить оттенок всей тёмной темы, замените эти два значения (и такие же
+   значения в разделе 2, где они продублированы для окна предпросмотра).
+   -------------------------------------------------------------------------- */
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: #131720;         /* Основной фон страниц */
+  --md-default-bg-color--light: #212833;  /* Фон блоков кода, всплывающих окон */
+  --md-code-bg-color: #212833;            /* Фон инлайн-кода (`так`) */
+}
+
+
+/* --------------------------------------------------------------------------
+   2. ОКНО ПРЕДПРОСМОТРА ССЫЛОК data-preview В ТЁМНОЙ СХЕМЕ
+
+   Когда читатель наводит курсор на ссылку с атрибутом data-preview (или
+   на ссылку, попавшую под настройку preview.configurations в zensical.toml),
+   тема показывает всплывающее окно с началом целевой страницы или раздела.
+   Окно состоит из внешнего элемента .md-tooltip2 (рамка, стрелка-указатель,
+   полосы плавного затухания текста сверху и снизу) и внутреннего
+   .md-tooltip2__inner (сам фон и текст).
+   -------------------------------------------------------------------------- */
+
+/* Внешний элемент окна.
+   Тема красит полосы затухания и стрелку-указатель цветом переменной
+   --md-default-bg-color. В разделе 1 мы сделали её слишком тёмной (#131720),
+   и на фоне окна появились бы тёмные полосы и прямоугольник. Поэтому внутри
+   окна возвращаем переменной цвет самого окна — она переопределяется только
+   здесь и на остальные части страницы не влияет. */
+[data-md-color-scheme="slate"] .md-tooltip2 {
+  --md-default-bg-color: #212833;   /* Фон окна, полосы затухания и стрелка берут этот цвет */
+}
+
+/* Внутренняя часть окна: фон и цвет текста.
+   !important нужен, потому что тема задаёт эти свойства с высокой
+   специфичностью и иначе наши значения не применяются. */
+[data-md-color-scheme="slate"] .md-tooltip2__inner {
+  background-color: #212833 !important;  /* Фон окна */
+  color: #e2e8f0 !important;             /* Цвет текста в окне (светло-серый) */
+}
+
+
+/* --------------------------------------------------------------------------
+   3. ПЛОТНОСТЬ ТЕКСТА
+
+   Тема задаёт крупный межстрочный интервал и большие отступы между абзацами и
+   пунктами списков. Здесь они уменьшены. Все значения собраны в переменных ниже:
+   чтобы сделать текст плотнее или свободнее, меняйте только их.
+
+   Единицы em считаются от размера шрифта текущего элемента, поэтому отступы
+   подстраиваются под размер текста.
+   -------------------------------------------------------------------------- */
+:root {
+  --doc-line-height: 1.45;        /* Межстрочный интервал текста (1.0 — вплотную, 1.6 — свободно) */
+  --doc-block-gap: 0.6em;         /* Отступ сверху и снизу у абзацев и списков */
+  --doc-item-gap: 0.2em;          /* Отступ между пунктами списка */
+  --doc-heading-top: 1em;         /* Отступ над заголовками h2–h6 (между предыдущим текстом и заголовком) */
+  --doc-heading-bottom: 0.35em;   /* Отступ под заголовками h2–h6 (между заголовком и его текстом) */
+  --doc-title-bottom: 0.6em;      /* Отступ под заголовком страницы h1 */
+}
+
+/* Основной текст страницы.
+   Класс .md-typeset тема навешивает на область с текстом документа
+   (не на меню и не на шапку), поэтому правила ниже действуют только внутри статьи. */
+.md-typeset {
+  line-height: var(--doc-line-height);
+}
+
+/* Абзацы и списки: отступы сверху и снизу */
+.md-typeset p,
+.md-typeset ul,
+.md-typeset ol {
+  margin-top: var(--doc-block-gap);
+  margin-bottom: var(--doc-block-gap);
+}
+
+/* Пункты списков: интервал и отступ между пунктами */
+.md-typeset li {
+  line-height: var(--doc-line-height);
+  margin-top: 0;
+  margin-bottom: var(--doc-item-gap);
+}
+
+/* Вложенные списки не получают лишнего отступа от родительского пункта */
+.md-typeset li > ul,
+.md-typeset li > ol {
+  margin-top: var(--doc-item-gap);
+  margin-bottom: 0;
+}
+
+/* Абзац внутри пункта (список с пустыми строками между пунктами) не добавляет своих отступов */
+.md-typeset li > p {
+  margin-top: 0;
+  margin-bottom: var(--doc-item-gap);
+}
+
+/* Заголовок страницы (h1): небольшой отступ сверху (отделяет от хлебных крошек), небольшой отступ снизу */
+.md-typeset h1 {
+  margin-top: 0.4em;
+  margin-bottom: var(--doc-title-bottom);
+  line-height: 1.25;
+}
+
+/* Заголовки разделов (h2–h6): отступ над заголовком и под ним, межстрочный интервал внутри заголовка */
+.md-typeset h2,
+.md-typeset h3,
+.md-typeset h4,
+.md-typeset h5,
+.md-typeset h6 {
+  margin-top: var(--doc-heading-top);
+  margin-bottom: var(--doc-heading-bottom);
+  line-height: 1.3;
+}
+
+
+/* --------------------------------------------------------------------------
+   4. НУМЕРОВАННЫЕ СПИСКИ
+
+   Тема меняет нумерацию вложенных списков: нумерованный список внутри другого списка
+   она показывает буквами (a, b, c), а на третьем уровне римскими цифрами (i, ii, iii).
+   Шаги сценариев (основной поток) записаны нумерованным списком внутри маркированного,
+   поэтому без этого правила вместо «1, 2, 3» выводится «a, b, c».
+   Здесь на всех уровнях возвращена обычная нумерация цифрами.
+
+   Чтобы вернуть буквенную нумерацию на втором уровне, удалите строку
+   .md-typeset ul ol и .md-typeset ol ol из списка селекторов.
+   -------------------------------------------------------------------------- */
+.md-typeset ol,
+.md-typeset ul ol,
+.md-typeset ol ol,
+.md-typeset ol ol ol {
+  list-style-type: decimal;
+}
+
+
+/* --------------------------------------------------------------------------
+   5. ЛЕВОЕ И ПРАВОЕ МЕНЮ: РАССТОЯНИЯ МЕЖДУ ПУНКТАМИ, СКРЫТЫЕ ЗНАЧКИ СТАТУСА
+
+   Левое меню — навигация по разделам, правое («Содержание») — заголовки текущей страницы.
+   Расстояние между пунктами складывается из внутреннего отступа пункта (pad) и отступа между пунктами (gap).
+   Всё вынесено в переменные: чтобы сжать или растянуть меню, меняйте только их.
+   -------------------------------------------------------------------------- */
+:root {
+  --doc-nav-gap: 0.1em;          /* Отступ между пунктами левого меню */
+  --doc-toc-gap: 0.1em;          /* Отступ между пунктами правого меню («Содержание») */
+  --doc-nav-pad: 0.25em;         /* Внутренний отступ сверху и снизу у пункта левого меню (высота подсветки активного пункта) */
+  --doc-toc-pad: 0.15em;         /* Внутренний отступ сверху и снизу у пункта правого меню */
+  --doc-nav-line-height: 1.3;    /* Межстрочный интервал внутри пункта меню (для длинных названий в несколько строк) */
+}
+
+/* Расстояние создаётся только отступом самой ссылки; у списка и элемента списка вертикальных отступов нет.
+   Селектор .md-sidebar охватывает обе боковые панели: левую (навигация) и правую (содержание). */
+.md-sidebar .md-nav__list,
+.md-sidebar .md-nav__item {
+  gap: 0;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+/* Левое меню.
+   Тема задаёт у ссылки заметный вертикальный внутренний отступ (из-за него подсветка активного пункта выше текста),
+   поэтому он переопределяется отдельно. !important нужен, чтобы перебить правила темы с более высокой специфичностью. */
+.md-sidebar--primary .md-nav__link {
+  margin-top: var(--doc-nav-gap);
+  margin-bottom: 0;
+  padding-top: var(--doc-nav-pad) !important;
+  padding-bottom: var(--doc-nav-pad) !important;
+  min-height: 0;
+  line-height: var(--doc-nav-line-height);
+}
+
+/* Правое меню («Содержание») */
+.md-sidebar--secondary .md-nav__link {
+  margin-top: var(--doc-toc-gap);
+  margin-bottom: 0;
+  padding-top: var(--doc-toc-pad) !important;
+  padding-bottom: var(--doc-toc-pad) !important;
+  min-height: 0;
+  line-height: var(--doc-nav-line-height);
+}
+
+/* Значок статуса у пунктов меню.
+   Если в метаданных страницы есть поле status, тема рисует у пункта меню значок статуса (элемент .md-status;
+   для значений, которых нет в [project.extra.status], — значок «i»). Статус страницы показывает её «паспорт»,
+   а значок в левом меню — поле icon, поэтому значок темы скрыт: в левом меню (в том числе в выдвижном меню
+   на узких экранах) и во вкладках верхнего уровня. Чтобы скрыть его везде, замените селекторы одним: .md-status */
+.md-nav--primary .md-status,
+.md-tabs .md-status {
+  display: none;
+}
+
+
+/* --------------------------------------------------------------------------
+   6. РАССТОЯНИЕ МЕЖДУ ГОРИЗОНТАЛЬНЫМ МЕНЮ (ВКЛАДКАМИ) И КОНТЕНТОМ
+
+   Под полосой вкладок («О продукте», «Проект», «Требования», «Архив») тема оставляет
+   вертикальное пространство, которое складывается из нескольких верхних отступов:
+     • .md-main__inner      — внешний отступ всей области под шапкой (в теме 1.5rem);
+     • .md-sidebar          — верхний внутренний отступ боковых меню (в теме 1.2rem);
+     • .md-content__inner   — верхний внутренний отступ статьи (в теме 0.6rem);
+     • .md-content__inner::before — пустой блок-распорка перед статьёй (в теме 0.4rem).
+   Ниже все четыре величины заданы переменными. Сейчас стоит небольшой зазор:
+   чтобы прижать контент к вкладкам вплотную, поставьте 0 во всех переменных;
+   чтобы вернуть вид темы, поставьте значения из скобок выше.
+
+   Левое меню и правое меню («Содержание») выровнены по верху контента, поэтому
+   отступ боковых меню лучше держать равным отступу статьи (иначе меню и текст
+   начинаются на разной высоте).
+   -------------------------------------------------------------------------- */
+:root {
+  --layout-top-gap: 0.5rem;        /* Зазор между вкладками и всей областью контента (тема: 1.5rem) */
+  --layout-sidebar-top: 1rem;      /* Верхний отступ левого и правого меню (тема: 1.2rem); больше — меню ниже */
+  --layout-content-top: 0;         /* Верхний отступ статьи (тема: 0.6rem); больше — крошки и заголовок ниже */
+  --layout-content-spacer: 0;      /* Высота пустой распорки перед статьёй (тема: 0.4rem) */
+}
+
+/* Внешний отступ всей области контента: самый заметный регулятор расстояния под вкладками */
+.md-main__inner {
+  margin-top: var(--layout-top-gap);
+}
+
+/* Боковые меню: левое (primary) и правое (secondary) */
+.md-sidebar {
+  padding-top: var(--layout-sidebar-top);
+}
+
+/* Статья: верхний внутренний отступ */
+.md-content__inner {
+  padding-top: var(--layout-content-top);
+}
+
+/* Пустая распорка, которую тема вставляет перед статьёй (псевдоэлемент ::before).
+   Без неё первая строка контента не получает лишней пустоты сверху. */
+.md-content__inner::before {
+  height: var(--layout-content-spacer);
+}
+
+/* Строка хлебных крошек («О продукте › Требования › …») над текстом статьи.
+   margin-top — расстояние от вкладок до крошек; для выравнивания крошек по первому пункту
+   левого меню используйте --layout-sidebar-top и --layout-content-top (см. выше).
+   margin-bottom — расстояние между крошками и заголовком страницы h1. */
+.md-path {
+  margin-top: 0;
+  margin-bottom: 0.8rem;
+}
+
+
+/* --------------------------------------------------------------------------
+   7. ШИРИНА СТРАНИЦЫ, ЛЕВОГО И ПРАВОГО МЕНЮ, ОТСТУПЫ КОНТЕНТА
+
+   Страница состоит из трёх колонок в ряд:
+     [ левое меню ] [ контент (статья) ] [ правое меню «Содержание» ]
+   Общая ширина ряда ограничена, поэтому на широком экране по бокам остаются пустые поля.
+   Ширина контента получается как «общая ширина минус левое меню минус правое меню
+   минус отступы»: чтобы расширить статью, увеличьте общую ширину страницы или
+   уменьшите меню.
+
+   Переменные:
+     --page-max-width     общая ширина страницы (тема: 61rem). Сейчас 80rem; значение
+                          100% растягивает страницу на всю ширину окна;
+     --sidebar-left-width ширина левого меню (тема: 12.1rem);
+     --sidebar-right-width ширина правого меню «Содержание» (тема: 12.1rem);
+     --content-gap-left   отступ между левым меню и статьёй (тема: около 0.8rem);
+     --content-gap-right  отступ между статьёй и правым меню (тема: около 0.8rem).
+   -------------------------------------------------------------------------- */
+:root {
+  --page-max-width: 65rem;
+  --sidebar-left-width: 12.1rem;
+  --sidebar-right-width: 12.1rem;
+  --content-gap-left: 0.8rem;
+  --content-gap-right: 0.8rem;
+}
+
+/* Общая ширина страницы.
+   Класс .md-grid тема использует и для шапки, и для вкладок, и для основной области,
+   поэтому вкладки, заголовок сайта и контент остаются выровнены по одним краям. */
+.md-grid {
+  max-width: var(--page-max-width);
+}
+
+/* Левое меню.
+   Правило обёрнуто в условие min-width: 76.25em — это экраны, на которых тема показывает левое
+   меню постоянно. На более узких экранах оно превращается в выдвижную панель («бургер»),
+   и менять её ширину не нужно: иначе панель будет выглядеть сломанной. */
+@media screen and (min-width: 76.25em) {
+  .md-sidebar--primary {
+    width: var(--sidebar-left-width);
+  }
+}
+
+/* Правое меню («Содержание»).
+   На экранах уже 60em тема скрывает его целиком, поэтому условие совпадает с этим порогом.
+   Чтобы убрать правое меню совсем и отдать место статье, замените содержимое блока на:
+   display: none;  */
+@media screen and (min-width: 60em) {
+  .md-sidebar--secondary {
+    width: var(--sidebar-right-width);
+  }
+}
+
+/* Отступы статьи: слева — от левого меню, справа — от правого.
+   Это основной регулятор «расстояния между левым и правым меню» с точки зрения статьи:
+   увеличьте значения, чтобы текст отодвинулся от меню. */
+.md-content__inner {
+  margin-left: var(--content-gap-left);
+  margin-right: var(--content-gap-right);
+}
+
+/* --------------------------------------------------------------------------
+   8. ДИАГРАММЫ ПО ЦЕНТРУ
+
+   Расширение plantuml_markdown вставляет диаграмму как img с классом uml внутри абзаца;
+   по умолчанию она выровнена влево.
+   display: block позволяет центрировать картинку автоматическими боковыми отступами,
+   max-width не даёт широкой диаграмме выйти за страницу.
+
+   Растянуть диаграмму на всю ширину: width: 100% вместо max-width (шрифт на ней вырастет).
+   Если сменить расширение или формат вывода, класс и тег могут измениться: смотрите в F12.
+   -------------------------------------------------------------------------- */
+.md-typeset img.uml {
+  display: block;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 100%;
+  height: auto;
+}
+
+
+/* --------------------------------------------------------------------------
+   9. СВОРАЧИВАНИЕ РАЗДЕЛОВ: СТРЕЛКИ В ЗАГОЛОВКАХ И ПОЛОСА «СВЕРНУТЬ ВСЁ / РАЗВЕРНУТЬ ВСЁ»
+
+   Элементы создаёт custom/js/sections.js, здесь только их вид; имена классов
+   совпадают с объектом CLS скрипта.
+     .section-toolbar  — полоса с двумя кнопками над h1; остаётся под шапкой при прокрутке;
+     .section-heading  — заголовок, у которого есть стрелка;
+     .section-toggle   — стрелка в заголовке: вниз — раздел развёрнут, вправо — свёрнут;
+     .is-collapsed     — заголовок свёрнутого раздела.
+   Класс collapsed из документа стилей не имеет: это только метка для скрипта.
+
+   Переменные --section-toolbar-top и --section-scroll-offset выставляет скрипт по высоте
+   шапки; значения в var(..., запасное) действуют, пока скрипт не отработал.
+   -------------------------------------------------------------------------- */
+:root {
+  --section-toggle-size: 1.1em;        /* Размер стрелки в заголовке (от размера шрифта заголовка) */
+  --section-toggle-opacity: 0.45;      /* Прозрачность стрелки в покое (1 — полностью яркая) */
+  --section-toolbar-gap: 0.4rem;       /* Расстояние между кнопками полосы */
+}
+
+/* Полоса: sticky держит её под шапкой, фон страницы не даёт тексту просвечивать снизу */
+.md-typeset .section-toolbar {
+  position: sticky;
+  top: var(--section-toolbar-top, 5rem);
+  z-index: 2;                          /* выше текста, ниже шапки (у неё z-index 4) */
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--section-toolbar-gap);
+  margin: 0 0 0.6rem;
+  padding: 0.35rem 0;
+  background-color: var(--md-default-bg-color);
+  border-bottom: 0.05rem solid var(--md-default-fg-color--lightest);
+}
+
+.md-typeset .section-toolbar button {
+  padding: 0.2rem 0.7rem;
+  font: inherit;
+  font-size: 0.7rem;
+  line-height: 1.4;
+  color: var(--md-default-fg-color--light);
+  background: none;
+  border: 0.05rem solid var(--md-default-fg-color--lighter);
+  border-radius: 0.2rem;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background-color 0.15s;
+}
+
+.md-typeset .section-toolbar button:hover,
+.md-typeset .section-toolbar button:focus-visible {
+  color: var(--md-accent-fg-color);
+  border-color: var(--md-accent-fg-color);
+  background-color: var(--md-accent-fg-color--transparent);
+}
+
+/* Стрелка в заголовке: небольшой квадрат слева от текста */
+.md-typeset .section-toggle {
+  --chevron-size: 0.5em;               /* размер галочки внутри (см. общее правило ниже) */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--section-toggle-size);
+  height: var(--section-toggle-size);
+  margin: 0 0.3em 0 0;
+  padding: 0;
+  vertical-align: middle;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: 0.15em;
+  opacity: var(--section-toggle-opacity);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+/* Яркая стрелка при наведении на заголовок или кнопку и при выборе с клавиатуры */
+.md-typeset .section-heading:hover .section-toggle,
+.md-typeset .section-toggle:hover,
+.md-typeset .section-toggle:focus-visible {
+  opacity: 1;
+}
+
+.md-typeset .section-toggle:focus-visible {
+  outline: 0.1rem solid var(--md-accent-fg-color);
+  outline-offset: 0.1rem;
+}
+
+/* На сенсорных экранах наведения нет: стрелка всегда достаточно яркая */
+@media (hover: none) {
+  .md-typeset .section-toggle {
+    --section-toggle-opacity: 0.8;
+  }
+}
+
+/* Галочка стрелок раздела и правого меню: правая и нижняя границы квадрата,
+   повёрнутые на 45 градусов; по умолчанию смотрит вниз (раздел развёрнут) */
+.md-typeset .section-toggle::before,
+.md-sidebar--secondary .toc-toggle::before {
+  content: "";
+  display: block;
+  width: var(--chevron-size);
+  height: var(--chevron-size);
+  margin-top: -0.2em;                  /* оптическое выравнивание: галочка визуально ниже центра */
+  border-right: 0.14em solid currentColor;
+  border-bottom: 0.14em solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 0.15s;
+}
+
+/* Раздел свёрнут: галочка смотрит вправо */
+.md-typeset .section-heading.is-collapsed .section-toggle::before,
+.md-sidebar--secondary .toc-collapsed > .toc-toggle::before {
+  margin-top: 0;
+  margin-left: -0.2em;
+  transform: rotate(-45deg);
+}
+
+/* При переходе по ссылке заголовок не должен оказаться под шапкой и полосой */
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3,
+.md-typeset h4,
+.md-typeset h5,
+.md-typeset h6 {
+  scroll-margin-top: var(--section-scroll-offset, 6rem);
+}
+
+@media print {
+  .md-typeset .section-toolbar,
+  .md-typeset .section-toggle {
+    display: none;
+  }
+}
+
+
+/* --------------------------------------------------------------------------
+   10. ПРАВОЕ МЕНЮ «СОДЕРЖАНИЕ»: СВОРАЧИВАНИЕ ВМЕСТЕ С РАЗДЕЛАМИ И СТРЕЛКИ
+
+   Скрипт помечает пункты меню классами:
+     toc-collapsible — у пункта есть подпункты: в него добавлена кнопка-стрелка .toc-toggle;
+     toc-collapsed   — раздел этого пункта свёрнут: подпункты скрыты.
+   Щелчок по стрелке сворачивает и разворачивает раздел (в тексте и в меню) без перехода
+   к заголовку; щелчок по названию пункта переходит к заголовку и разворачивает раздел.
+
+   Переменные:
+     --toc-arrow-size     размер галочки (от размера шрифта пункта);
+     --toc-arrow-opacity  прозрачность стрелки (1 — полностью яркая);
+     --toc-arrow-area     ширина кнопки и место под неё справа от названия.
+   Отключить сворачивание подпунктов: удалить правило с toc-collapsed.
+   Убрать стрелки: удалить правила .toc-toggle.
+   -------------------------------------------------------------------------- */
+:root {
+  --toc-arrow-size: 0.45em;
+  --toc-arrow-opacity: 0.6;
+  --toc-arrow-area: 1.6em;
+}
+
+.md-sidebar--secondary .md-nav__item.toc-collapsed > .md-nav {
+  display: none;
+}
+
+/* Пункт со стрелкой: точка отсчёта для положения кнопки; справа от названия
+   оставлено место, чтобы текст не заходил под неё */
+.md-sidebar--secondary .md-nav__item.toc-collapsible {
+  position: relative;
+}
+
+.md-sidebar--secondary .md-nav__item.toc-collapsible > .md-nav__link {
+  padding-right: var(--toc-arrow-area);
+}
+
+/* Кнопка у правого края, по высоте равна первой строке названия
+   (у длинных названий в несколько строк стрелка стоит у первой) */
+.md-sidebar--secondary .toc-toggle {
+  --chevron-size: var(--toc-arrow-size);
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--toc-arrow-area);
+  height: 1.3em;                       /* строка меню: межстрочный интервал темы 1.3 */
+  margin: 0;
+  padding: 0;
+  font: inherit;                       /* иначе em считаются от шрифта кнопки по умолчанию */
+  line-height: 1.3;
+  color: inherit;
+  background: none;
+  border: 0;
+  border-radius: 0.2em;
+  opacity: var(--toc-arrow-opacity);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.md-sidebar--secondary .toc-toggle:hover,
+.md-sidebar--secondary .toc-toggle:focus-visible {
+  opacity: 1;
+}
+
+.md-sidebar--secondary .toc-toggle:focus-visible {
+  outline: 0.1rem solid var(--md-accent-fg-color);
+  outline-offset: 0.05rem;
+}
+
+
+/* --------------------------------------------------------------------------
+   11. «ПАСПОРТ» СТРАНИЦЫ: ПРИОРИТЕТ, СТАТУС, РЕДАКТОР, ВЕРСИЯ, ЗАДАЧА, РЕЛИЗ, ДАТА РЕЛИЗА
+
+   Блок dl.page-passport выводит шаблон custom/passport.html (значения из метаданных
+   страницы), под заголовок первого уровня его переносит custom/js/passport.js.
+   Поля идут столбцом, одно под другим, в виде «КЛЮЧ: значение»: ключ — dt (двоеточие
+   добавляет стиль), значение — dd, каждое поле — элемент .page-passport__item.
+   Цвета берутся из переменных темы, поэтому блок работает в светлой и тёмной схемах.
+
+   Переменные:
+     --passport-border      полоса слева (толщина, вид, цвет);
+     --passport-background  фон блока;
+     --passport-font-size   размер шрифта блока (ключи — 0.85 от него);
+     --passport-row-gap     расстояние между строками;
+     --passport-padding     внутренние отступы блока (сверху и снизу, слева и справа).
+   -------------------------------------------------------------------------- */
+/* Переменные с цветами темы объявлены на элементе со схемой (body с атрибутом data-md-color-scheme), а не на :root:
+   значение var() в переменной вычисляется там, где переменная объявлена, а на :root действуют цвета светлой схемы —
+   в тёмной схеме блок остался бы светлым. */
+[data-md-color-scheme] {
+  --passport-border: 0.15rem solid var(--md-primary-fg-color);
+  --passport-background: var(--md-code-bg-color);
+}
+
+:root {
+  --passport-font-size: 0.64rem;
+  --passport-row-gap: 0.45rem;
+  --passport-padding: 0.6rem 0.8rem;
+}
+
+.md-typeset dl.page-passport {
+  display: flex;
+  flex-direction: column;
+  gap: var(--passport-row-gap);
+  margin: 0 0 1.2rem;
+  padding: var(--passport-padding);
+  border-left: var(--passport-border);
+  border-radius: 0.1rem;
+  background-color: var(--passport-background);
+  font-size: var(--passport-font-size);
+}
+
+/* Под заголовком первого уровня блок стоит ближе к нему */
+.md-typeset h1 + dl.page-passport {
+  margin-top: -0.4rem;
+}
+
+.md-typeset .page-passport__item {
+  display: flex;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+/* Ключ: мелкие прописные буквы приглушённого цвета */
+.md-typeset .page-passport__item dt {
+  margin: 0;
+  color: var(--md-default-fg-color--light);
+  font-size: 0.85em;
+  font-weight: 400;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.md-typeset .page-passport__item dt::after {
+  content: ":";
+}
+
+/* Значение: полужирное; у темы для dd есть свой отступ слева — убираем */
+.md-typeset .page-passport__item dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+
+/* --------------------------------------------------------------------------
+   12. ДАШБОРД РЕЕСТРА ТРЕБОВАНИЙ (requirements/features/index.md)
+
+   Разметку формирует py/dashboard.py (блок между маркерами GENERATED DASHBOARD).
+   Части дашборда:
+     .dash-total, .dash-tiles, .dash-tile  — плитки «Всего F / SF» и плитки статусов (как в архиве);
+     .dash-progress, .dash-bar             — «Прогресс по фичам»: полоса из сегментов по статусам SF;
+     .dash-legend                          — подписи цветов под полосами;
+     .dash-matrix                          — таблица «Приоритет × статус SF»;
+     .dash-check                           — группы «Требует внимания» (оформление блоков details
+                                             темы: warning — есть замечания, success — нет);
+     .dash-changes                         — таблица «Последние изменения».
+   Цвет статуса задаёт класс dash-<статус> через переменную --c (значения — ниже, для светлой
+   и тёмной схемы). Плитка с нулём приглушена (is-zero). Плитки пока не кликабельны.
+   -------------------------------------------------------------------------- */
+:root {
+  --dash-backlog: #6b7a8c;
+  --dash-analysis: #c98a00;
+  --dash-ready: #2b78c9;
+  --dash-development: #7a4fd0;
+  --dash-released: #228a5b;
+  --dash-archived: #7c7c7c;
+  --dash-in-progress: #d0612b;
+  --dash-zero-opacity: 0.45;          /* насколько приглушена плитка с нулём (1 — не приглушать) */
+}
+
+/* Цвет линий таблиц — из темы; объявлен на элементе со схемой, чтобы брать цвет текущей схемы (см. раздел 11) */
+[data-md-color-scheme] {
+  --dash-line: var(--md-default-fg-color--lightest);
+}
+
+[data-md-color-scheme="slate"] {
+  --dash-backlog: #9fb0c3;
+  --dash-analysis: #f0b429;
+  --dash-ready: #5aa7f0;
+  --dash-development: #a98bf0;
+  --dash-released: #4cc38a;
+  --dash-archived: #a8a8a8;
+  --dash-in-progress: #f28c5b;
+}
+
+.md-typeset .dash-backlog     { --c: var(--dash-backlog); }
+.md-typeset .dash-analysis    { --c: var(--dash-analysis); }
+.md-typeset .dash-ready       { --c: var(--dash-ready); }
+.md-typeset .dash-development { --c: var(--dash-development); }
+.md-typeset .dash-released    { --c: var(--dash-released); }
+.md-typeset .dash-archived    { --c: var(--dash-archived); }
+.md-typeset .dash-in-progress { --c: var(--dash-in-progress); }
+
+/* Плитка «Всего …» — на всю ширину, в цвете темы */
+.md-typeset .dash-total {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.6rem 0;
+  padding: 0.6rem 0.9rem;
+  color: var(--md-primary-fg-color);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  background-color: color-mix(in srgb, var(--md-primary-fg-color) 10%, transparent);
+  border: 0.1rem solid var(--md-primary-fg-color);
+  border-radius: 0.5rem;
+}
+
+.md-typeset .dash-total__name {
+  font-weight: 500;
+}
+
+/* Сетка плиток статусов: все одной ширины и высоты; на узкой странице — в два-три ряда */
+.md-typeset .dash-tiles {
+  container-type: inline-size;
+}
+
+.md-typeset .dash-tiles > p {
+  display: grid;
+  grid-template-columns: repeat(var(--n, 6), minmax(0, 1fr));
+  grid-auto-rows: 1fr;
+  gap: 0.6rem;
+  margin: 0.6rem 0 0.8rem;
+}
+
+.md-typeset .dash-tiles[data-n="4"] { --n: 4; }
+.md-typeset .dash-tiles[data-n="6"] { --n: 6; }
+
+@container (max-width: 40rem) {
+  .md-typeset .dash-tiles[data-n="6"] > p { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+@container (max-width: 22rem) {
+  .md-typeset .dash-tiles > p { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+.md-typeset .dash-tile {
+  display: flex;
+  flex-direction: column;              /* сверху значок и число, под ними название статуса */
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  padding: 0.6rem 0.5rem;
+  text-align: center;
+  color: var(--c);
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1;
+  background-color: color-mix(in srgb, var(--c) 12%, transparent);
+  border: 0.1rem solid var(--c);
+  border-radius: 0.5rem;
+}
+
+.md-typeset .dash-tile.is-zero {
+  opacity: var(--dash-zero-opacity);
+}
+
+.md-typeset .dash-tile__top {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.25rem;
+}
+
+.md-typeset .dash-tile__name {
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.15;
+  hyphens: none;
+  overflow-wrap: normal;               /* название переносится только между словами */
+}
+
+/* «Прогресс по фичам»: название | полоса | «реализовано X из N» */
+.md-typeset .dash-progress__row {
+  display: grid;
+  grid-template-columns: minmax(8rem, 14rem) 1fr auto;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.45rem 0;
+  border-bottom: 0.05rem solid var(--dash-line);
+}
+
+.md-typeset .dash-progress__title {
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.md-typeset .dash-progress__title small {
+  display: block;
+  font-weight: 400;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .dash-bar {
+  display: flex;
+  height: 0.75rem;
+  overflow: hidden;
+  border-radius: 0.4rem;
+  background-color: var(--md-default-fg-color--lightest);
+}
+
+.md-typeset .dash-bar > span {
+  background-color: var(--c);
+}
+
+.md-typeset .dash-progress__done {
+  color: var(--md-default-fg-color--light);
+  white-space: nowrap;
+}
+
+.md-typeset .dash-progress__done b {
+  color: var(--md-default-fg-color);
+}
+
+.md-typeset .dash-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem 0.9rem;
+  margin: 0.5rem 0 0;
+  font-size: 0.85em;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .dash-legend i,
+.md-typeset .dash-matrix thead th i {
+  display: inline-block;
+  width: 0.6rem;
+  height: 0.6rem;
+  margin-right: 0.25rem;
+  vertical-align: -0.05rem;
+  border-radius: 0.15rem;
+  background-color: var(--c);
+}
+
+/* Таблицы дашборда: свои (у таблиц с классом тема оформление не применяет) */
+.md-typeset table.dash-matrix,
+.md-typeset table.dash-changes {
+  display: table;
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85em;
+}
+
+.md-typeset .dash-matrix th,
+.md-typeset .dash-matrix td,
+.md-typeset .dash-changes th,
+.md-typeset .dash-changes td {
+  padding: 0.35rem 0.4rem;
+  border-bottom: 0.05rem solid var(--dash-line);
+}
+
+.md-typeset .dash-matrix thead th,
+.md-typeset .dash-changes thead th {
+  color: var(--md-default-fg-color--light);
+  font-weight: 600;
+  vertical-align: bottom;
+}
+
+.md-typeset .dash-matrix td,
+.md-typeset .dash-matrix thead th {
+  text-align: center;
+}
+
+.md-typeset .dash-matrix th:first-child {
+  text-align: left;
+}
+
+.md-typeset .dash-matrix td.is-value {
+  color: var(--c);
+  font-weight: 700;
+  background-color: color-mix(in srgb, var(--c) 14%, transparent);
+}
+
+.md-typeset .dash-matrix td.is-empty {
+  color: var(--md-default-fg-color--lightest);
+}
+
+.md-typeset .dash-matrix tr.dash-sum > * {
+  font-weight: 700;
+  border-top: 0.1rem solid var(--dash-line);
+}
+
+.md-typeset .dash-changes th,
+.md-typeset .dash-changes td {
+  text-align: left;
+}
+
+.md-typeset .dash-changes td.dash-when {
+  white-space: nowrap;
+  color: var(--md-default-fg-color--light);
+}
+
+/* «Требует внимания»: блоки details темы; число замечаний — бейдж справа в заголовке */
+.md-typeset details.dash-check {
+  margin: 0.5rem 0;
+}
+
+.md-typeset details.dash-check > summary {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding-right: 2rem;                 /* место под стрелку темы справа */
+}
+
+.md-typeset details.dash-check ul {
+  margin-top: 0.4rem;
+  margin-bottom: 0.6rem;
+}
+
+.md-typeset .dash-count {
+  margin-left: auto;
+  padding: 0.05rem 0.5rem;
+  color: #fff;
+  font-size: 0.85em;
+  font-weight: 700;
+  border-radius: 1rem;
+  background-color: var(--md-warning-fg-color, #ff9100);
+}
+
+.md-typeset .dash-ok {
+  margin-left: auto;
+  font-weight: 400;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .dash-more {
+  list-style: none;
+  color: var(--md-default-fg-color--light);
+}
+
+
+/* --------------------------------------------------------------------------
+   13. БЛОКИ ПРИМЕЧАНИЙ И СВОРАЧИВАЕМЫЕ БЛОКИ: ШРИФТ ОСНОВНОГО ТЕКСТА
+
+   Тема набирает блоки примечаний (!!! note, !!! info, !!! warning и другие типы) и сворачиваемые блоки <details>
+   (например, «Статусы функциональностей» и «Требует внимания» на дашборде) уменьшенным шрифтом. Здесь им задан
+   размер основного текста страницы — и в заголовке блока, и в тексте. Значки в тексте блока (:lucide-…:) задаются
+   в em, поэтому увеличиваются вместе с текстом. Правило действует на всех страницах и для блоков любого типа.
+   Вернуть уменьшенный шрифт темы: удалить этот раздел.
+   -------------------------------------------------------------------------- */
+.md-typeset .admonition,
+.md-typeset .admonition > .admonition-title,
+.md-typeset details,
+.md-typeset details > summary {
+  font-size: inherit;
+}

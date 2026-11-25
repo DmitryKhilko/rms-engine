@@ -1,0 +1,121 @@
+# ==========================================================================
+# zensical.base.toml — общие настройки сайтов всех продуктов (движок rms-engine)
+#
+# Тема (каталог engine/custom), язык, логотип, возможности, шрифты, цветовые схемы и расширения Markdown — одни для всех
+# продуктов. При каждой сборке продукта скрипт py/site_settings.py переписывает этим файлом блок между маркерами
+# BEGIN/END ENGINE SETTINGS в zensical.toml продукта: поменять настройку для всех продуктов — поправить её здесь и
+# выпустить новую версию движка.
+#
+# Чего здесь быть не должно: раздела [project] с ключами (название сайта, адреса — у каждого продукта свои) и таблиц,
+# которые продукт задаёт сам (например, [project.extra.tracker]): TOML не допускает одну таблицу дважды.
+# Логотип и значок вкладки — файл docs/assets/logo.png продукта.
+# ==========================================================================
+
+# --- ТЕМА ---
+[project.theme]
+# Тема — каталог custom/ движка rms-engine, который при сборке лежит в папке engine/: шаблон main.html, стили (css/),
+# скрипты страниц (js/). Zensical берёт extra_css и extra_javascript только из docs/, поэтому стили и скрипты встраивает
+# в страницы шаблон main.html; строки extra_css / extra_javascript здесь не нужны. Тёмно-синюю тёмную схему задаёт
+# engine/custom/css/extra.css.
+custom_dir = "engine/custom"
+language = "ru"
+
+# Логотип в заголовке сайта и значок вкладки браузера. Пути относительно docs/ (так их разрешает Zensical), файл лежит в docs/assets/.
+logo = "assets/logo.png"
+favicon = "assets/logo.png"
+
+# Все возможности включаются ОДНИМ списком внутри [project.theme]
+features = [
+    # навигация
+    "navigation.instant",            # переходы между страницами без перезагрузки
+    "navigation.instant.prefetch",   # подгрузка страницы при наведении на ссылку
+    "navigation.instant.progress",   # индикатор загрузки страницы
+    "navigation.tracking",           # адрес страницы обновляется якорем текущего раздела при прокрутке
+    "navigation.tabs",               # разделы верхнего уровня — вкладки в шапке
+    "navigation.tabs.sticky",        # вкладки остаются на экране при прокрутке
+    "navigation.prune",              # из HTML страницы удаляются элементы свёрнутых групп меню
+    "navigation.path",               # «хлебные крошки» над заголовком страницы
+    "navigation.indexes",            # index.md группы открывается по клику на название группы
+    "navigation.top",                # кнопка «Наверх»
+    "toc.follow",                    # правое меню прокручивается за активным разделом
+    # поиск
+    "search.suggest",                # подсказки при вводе запроса
+    "search.highlight",              # подсветка найденных слов на странице
+    "search.share",                  # кнопка «Поделиться» результатами поиска
+    # контент
+    "content.code.copy",             # кнопка копирования кода
+    "content.code.annotate",         # аннотации в блоках кода
+    "content.tooltips",              # всплывающие подсказки (в том числе для сокращений abbr)
+    "content.action.edit",           # кнопка «Править страницу» (нужны repo_url и edit_uri)
+    "content.footnote.tooltips",     # текст сноски во всплывающем окне
+]
+
+[project.theme.font]
+text = "Nunito"
+code = "Fira Code"
+
+# Цветовые схемы переключаются кнопкой в шапке; по умолчанию берётся схема системы (prefers-color-scheme).
+# Фон тёмной схемы (тёмно-синий) задаёт engine/custom/css/extra.css.
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "default"
+primary = "indigo"
+accent = "indigo"
+toggle.icon = "lucide/moon"
+toggle.name = "Включить тёмную тему"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "slate"
+primary = "black"
+accent = "indigo"
+toggle.icon = "lucide/sun"
+toggle.name = "Включить светлую тему"
+
+# --- РАСШИРЕНИЯ MARKDOWN ---
+# Примечания (!!! note), сокращения, разметка внутри HTML-блоков
+[project.markdown_extensions.admonition]
+[project.markdown_extensions.abbr]
+[project.markdown_extensions.attr_list]
+[project.markdown_extensions.md_in_html]
+
+# Код: подсветка, код в строке, вложенные блоки кода
+[project.markdown_extensions.pymdownx.highlight]
+anchor_linenums = true
+line_spans = "__span"
+pygments_lang_class = true
+[project.markdown_extensions.pymdownx.inlinehilite]
+[project.markdown_extensions.pymdownx.superfences]
+
+# Диаграммы PlantUML (блок ```plantuml ... ```). Рисуются при сборке сайта и вставляются в страницу как SVG.
+# Для работы на машине сборки (и локально, для zensical serve) должны быть установлены PlantUML (команда plantuml) и Graphviz.
+# Вместо локальной команды можно указать свой сервер PlantUML: server = "https://адрес-сервера"
+# (публичный сервер не используйте: исходники диаграмм передаются на него при каждой сборке).
+[project.markdown_extensions.plantuml_markdown]
+plantuml_cmd = "plantuml"
+format = "svg"
+
+# Вставка файлов в страницу: --8<-- "путь/от/docs/файл" (пути считаются от docs/).
+# Нужна, чтобы показывать на страницах требований эталоны запросов, ответов и схем (JSON) прямо из файлов, которые читают автотесты.
+[project.markdown_extensions.pymdownx.snippets]
+base_path = ["docs"]
+check_paths = true
+
+# Чек-листы (- [ ] пункт)
+[project.markdown_extensions.pymdownx.tasklist]
+custom_checkbox = true
+
+# Иконки и эмодзи (:lucide-book-open:, :material-check:)
+[project.markdown_extensions.pymdownx.emoji]
+emoji_index = "zensical.extensions.emoji.twemoji"
+emoji_generator = "zensical.extensions.emoji.to_svg"
+
+# Окно предпросмотра при наведении на ссылку: включено для всех ссылок на страницы *.md.
+# sources.exclude — страницы, ИЗ которых ссылки окна не получают: все index.md (стартовая страница, индексы разделов и модулей),
+# где ссылки на спецификации задаются явно атрибутом data-preview, и releases.md (страница «Релизы», пока не подключена).
+[[project.markdown_extensions.zensical.extensions.preview.configurations]]
+targets.include = ["**/*.md"]
+# sources.exclude = ["index.md", "**/index.md", "releases.md"]
+
+# Увеличение изображений при щелчке по изображению 
+[project.markdown_extensions.zensical.extensions.glightbox]

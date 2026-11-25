@@ -1,0 +1,11 @@
+# Движок rms-engine: при сборке скачивается в engine/, для локального просмотра — тоже сюда (см. README.md)
+engine/
+# Результат сборки и кэш Zensical
+site/
+.cache/
+# Python
+__pycache__/
+*.pyc
+# Редактор и личные черновики
+.vscode
+sandbox
