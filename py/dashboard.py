@@ -15,7 +15,7 @@
    неподтверждённые вопросы и допущения, битые ссылки. Выводятся все замечания, каждое — со ссылкой на место
    в требованиях. Группа с замечаниями раскрыта, без замечаний — свёрнута («Замечаний нет»). Коды, вопросы,
    допущения и ссылки проверяются в папках ATTENTION_DIRS (глобальные требования и реестр), остальное — по SF реестра.
-5. «Последние изменения» — последние записи журналов изменений всех разделов реестра.
+5. «Последние изменения» — последние записи журналов изменений глобальных требований и фич (папки ATTENTION_DIRS).
 
 Фичи, SF, их названия, статусы и приоритеты (у F — вычисленные) берёт common.registry() — тот же обход реестра, что
 у status.py и nav.py, поэтому фичи идут в том же порядке, что в меню.
@@ -41,7 +41,7 @@ from common import Feature, load, read, registry, rel, save, sf_title
 from config import (ACCEPTANCE_MARK, ANCHOR_RE, ARCHIVED_STATUS, ATTENTION_DIRS, CHANGES_LIMIT, DASHBOARD_BEGIN,
                     DASHBOARD_END, DASHBOARD_PAGE, DASHBOARD_RE, DOCS_DIR, DONE_STATUS, FR_FILE, FR_HEADING_RE,
                     FEATURE_TITLE_RE, GLOBAL_SF_DIR, HEADING_ANCHOR_RE, INDEX_NAME, INLINE_LINK_RE, JOURNAL_ENTRY_RE, NOTE_FINAL,
-                    NOTE_KINDS, NOTE_OWNER_RE, NOTE_RE, NOTE_STATUS_RE, PRIORITY_ORDER, REF_LINK_RE, REGISTRY_DIR,
+                    NOTE_KINDS, NOTE_OWNER_RE, NOTE_RE, NOTE_STATUS_RE, PRIORITY_ORDER, REF_LINK_RE,
                     REQUIREMENT_ID_RE, SF_STATUSES, STATUS_CSS, STATUS_DESCRIPTIONS, STATUS_ICONS)
 
 H1_LINE_RE = re.compile(r"^#[ \t]+.+$", re.MULTILINE)
@@ -300,7 +300,7 @@ def attention_block(features: list[Feature]) -> list[str]:
 
 def changes_block(features: list[Feature]) -> list[str]:
     entries = []
-    for path in sorted((DOCS_DIR / REGISTRY_DIR).rglob(INDEX_NAME)):
+    for path in (p for p in attention_files() if p.name == INDEX_NAME):
         for m in JOURNAL_ENTRY_RE.finditer(read(path)):
             fmt = "%d.%m.%Y %H:%M:%S" if m.group("when").count(":") == 2 else "%d.%m.%Y %H:%M"
             entries.append((datetime.strptime(m.group("when"), fmt), place(path, features), m))
@@ -313,7 +313,7 @@ def changes_block(features: list[Feature]) -> list[str]:
         f'<td>{esc(e[2].group("files") or "")}</td><td>{esc(e[2].group("author"))}</td></tr>'
         for e in entries[:CHANGES_LIMIT])
     return ["## Последние изменения {#dash-changes}", "",
-            f"Последние записи журналов изменений всех разделов реестра; версия — ссылка на коммит.", "",
+            f"Последние записи журналов изменений глобальных требований и фич; версия — ссылка на коммит.", "",
             '<table class="dash-changes"><thead><tr><th>Когда</th><th>Раздел</th><th>Версия</th><th>Файлы</th>'
             f'<th>Редактор</th></tr></thead><tbody>{rows}</tbody></table>', ""]
 

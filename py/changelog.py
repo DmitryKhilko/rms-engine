@@ -175,13 +175,15 @@ def build_journal(entries: list[Entry], url: str) -> list[str]:
 
 def replace_journal(lines: list[str], journal: list[str]) -> list[str] | None:
     """Заменяет содержимое раздела журнала. Раздел — заголовок и следующие за ним пустые строки, пункты списка
-    и строки с отступом; первая иная строка (следующий заголовок, абзац, определение ссылки) — уже не журнал.
+    и строки с отступом, а также строка «Записей пока нет.» без маркера (остаток ручной правки); первая иная строка
+    (следующий заголовок, абзац, определение ссылки) — уже не журнал.
     None — заголовка в файле нет."""
     start = next((i for i, line in enumerate(lines) if CHANGELOG_HEADING_RE.match(line)), None)
     if start is None:
         return None
     end = start + 1
-    while end < len(lines) and (not lines[end].strip() or lines[end].startswith(("- ", "* ", " ", "\t"))):
+    while end < len(lines) and (not lines[end].strip() or lines[end].startswith(("- ", "* ", " ", "\t"))
+                                or lines[end].strip() == CHANGELOG_EMPTY):   # «Записей пока нет.» без маркера
         end += 1
     tail = lines[end:]
     return lines[:start + 1] + [""] + journal + ([""] if tail else []) + tail
