@@ -14,11 +14,12 @@
 Как собирается меню (названия и порядок — py/config.py движка; настроек в репозитории продукта нет)
 -----------------------------------------------------------------------------------------------
 * Неизменная часть меню — список NAV (стандартная структура docs/): страниц, которых у продукта нет, в меню нет.
-  Вместо элемента REGISTRY подставляется группа «Реестр требований», вместо GLOBAL_SF — группа «Глобальные
-  функциональности» (папки GLOBAL_SF_DIR с приставкой GLOBAL_SF_PREFIX в порядке GLOBAL_SF_ORDER; название — текст
-  после ID в заголовке SF их index.md; файлы внутри — по FILE_TITLES, как у подфункциональностей реестра).
-* Группа реестра: индекс папки REGISTRY_DIR, затем фичи — подпапки с index.md, по полю `order` их index.md, затем по
-  имени папки. Название фичи — текст после ID в заголовке F в её index.md («## F-PT. Справочник видов изделий»;
+  Вместо элемента REGISTRY подставляется группа реестра «Требования к продукту», вместо GLOBAL_SF — группа
+  «Глобальные функциональности» (папки GLOBAL_SF_DIR с приставкой GLOBAL_SF_PREFIX по полю `order` их index.md, затем
+  по имени папки; название — текст после ID в заголовке SF их index.md; файлы внутри — по FILE_TITLES, как у
+  подфункциональностей реестра).
+* Группа реестра: индекс папки REGISTRY_DIR, пункты REGISTRY_LEAD («Глобальные требования»), затем фичи — подпапки
+  с index.md, по полю `order` их index.md, затем по имени папки. Название фичи — текст после ID в заголовке F в её index.md («## F-PT. Справочник видов изделий»;
   запасные варианты — заголовок первого уровня, имя папки).
 * Внутри фичи: index.md (открывается щелчком на группе), затем файлы фичи (FILE_TITLES с приставкой
   FEATURE_FILE_PREFIX: «Общие UC», «Общие DR»…), затем подпапки (FOLDER_TITLES: «Список», «Создание»…;
@@ -39,10 +40,10 @@ import sys
 import tomllib
 from pathlib import Path
 
-from common import dict_key, registry, rel, sf_title
+from common import dict_key, feature_order, registry, rel, sf_title
 from config import (DOCS_DIR, FEATURE_FILE_PREFIX, FILE_TITLES, FOLDER_TITLES, GLOBAL_SF, GLOBAL_SF_DIR,
-                    GLOBAL_SF_ORDER, GLOBAL_SF_PREFIX, GLOBAL_SF_TITLE, INDEX_NAME, NAV, NAV_BEGIN, NAV_END, NAV_RE,
-                    REGISTRY, REGISTRY_DIR, REGISTRY_TITLE, ZENSICAL_CONFIG)
+                    GLOBAL_SF_PREFIX, GLOBAL_SF_TITLE, INDEX_NAME, NAV, NAV_BEGIN, NAV_END, NAV_RE,
+                    REGISTRY, REGISTRY_DIR, REGISTRY_LEAD, REGISTRY_TITLE, ZENSICAL_CONFIG)
 
 
 # ---------------------------------------------------------------------------
@@ -78,11 +79,13 @@ def folder_items(folder: Path, file_prefix: str, warnings: list[str]) -> list:
 
 
 def registry_group(warnings: list[str]) -> tuple[str, list]:
-    """Группа «Реестр требований»: индекс папки реестра, затем фичи в порядке common.registry()."""
+    """Группа реестра («Требования к продукту»): индекс папки реестра, пункты REGISTRY_LEAD, затем фичи в порядке
+    common.registry()."""
     root = DOCS_DIR / REGISTRY_DIR
     items: list = []
     if (root / INDEX_NAME).is_file():
         items.append(rel(root / INDEX_NAME))
+    items += expand(REGISTRY_LEAD, warnings)
     for feature in registry(warnings):
         items.append((feature.title, folder_items(feature.folder, FEATURE_FILE_PREFIX, warnings)))
     if root.is_dir():
@@ -96,8 +99,11 @@ def global_sf_group(warnings: list[str]) -> tuple[str, list]:
     root = DOCS_DIR / GLOBAL_SF_DIR
     folders = [p for p in root.glob(GLOBAL_SF_PREFIX + "*") if p.is_dir() and (p / INDEX_NAME).is_file()]
     items: list = []
-    order = {name: i for i, name in enumerate(GLOBAL_SF_ORDER)}
-    for folder in sorted(folders, key=lambda p: (order.get(p.name, len(order)), p.name)):
+    def key(folder: Path) -> tuple:
+        order = feature_order(folder / INDEX_NAME)
+        return order is None, order or 0, folder.name
+
+    for folder in sorted(folders, key=key):
         title = sf_title(folder)
         if not title:
             title = folder.name

@@ -9,15 +9,16 @@
 Что на дашборде (сверху вниз)
 -----------------------------
 1. «Статусы функциональностей» — свёрнутый блок с пояснениями к статусам.
-2. Плитки F и SF: всего и по статусам (у F — бэклог, в работе, реализовано, архив; у SF — шесть ручных статусов).
-3. «Прогресс по фичам» — полоса на каждую F: доля её SF в каждом статусе (архивные не учитываются), «реализовано X из N».
-4. «Приоритет × статус SF» — сколько SF каждого приоритета в каждом статусе.
-5. «Требует внимания» — проверки требований: SF без FR, FR без критериев приёмки, SF без приоритета, повторяющиеся коды,
-   неподтверждённые допущения, битые ссылки. Группа с замечаниями раскрыта, без замечаний — свёрнута («Замечаний нет»).
-6. «Последние изменения» — последние записи журналов изменений всех разделов реестра.
+2. «Прогресс по F» — полоса на каждую F: доля её SF в каждом статусе (архивные не учитываются), «реализовано X из N».
+3. «Приоритет × статус SF» — сколько SF каждого приоритета в каждом статусе.
+4. «Требует внимания» — проверки требований: SF без FR, FR без критериев приёмки, SF без приоритета, повторяющиеся коды,
+   неподтверждённые вопросы и допущения, битые ссылки. Выводятся все замечания, каждое — со ссылкой на место
+   в требованиях. Группа с замечаниями раскрыта, без замечаний — свёрнута («Замечаний нет»). Коды, вопросы,
+   допущения и ссылки проверяются в папках ATTENTION_DIRS (глобальные требования и реестр), остальное — по SF реестра.
+5. «Последние изменения» — последние записи журналов изменений всех разделов реестра.
 
 Фичи, SF, их названия, статусы и приоритеты (у F — вычисленные) берёт common.registry() — тот же обход реестра, что
-у status.py и nav.py, поэтому фичи идут в том же порядке, что в меню. Плитки пока не кликабельны.
+у status.py и nav.py, поэтому фичи идут в том же порядке, что в меню.
 В блоке нет даты и времени: без изменений в требованиях страница не меняется и лишнего коммита нет.
 
 Все настройки — в py/config.py (раздел «Дашборд реестра»), оформление — custom/css/extra.css (раздел 12).
@@ -28,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import os
 import re
 import sys
 from collections import Counter, defaultdict
@@ -35,13 +37,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from common import Feature, load, read, registry, rel, save
-from config import (ACCEPTANCE_MARK, ANCHOR_RE, ARCHIVED_STATUS, ASSUMPTION_ACCEPTED, ASSUMPTION_OWNER_RE,
-                    ASSUMPTION_RE, ASSUMPTION_STATUS_RE, ATTENTION_LIST_LIMIT, CHANGES_LIMIT, DASHBOARD_BEGIN,
-                    DASHBOARD_END, DASHBOARD_PAGE, DASHBOARD_RE, DOCS_DIR, DONE_STATUS, F_STATUSES, FR_FILE,
-                    FR_HEADING_RE, INDEX_NAME, INLINE_LINK_RE, JOURNAL_ENTRY_RE, PRIORITY_ORDER, REF_LINK_RE,
-                    REGISTRY_DIR, REQUIREMENT_ID_RE, SF_STATUSES, STATUS_CSS, STATUS_DESCRIPTIONS, STATUS_ICONS,
-                    TOTAL_ICON)
+from common import Feature, load, read, registry, rel, save, sf_title
+from config import (ACCEPTANCE_MARK, ANCHOR_RE, ARCHIVED_STATUS, ATTENTION_DIRS, CHANGES_LIMIT, DASHBOARD_BEGIN,
+                    DASHBOARD_END, DASHBOARD_PAGE, DASHBOARD_RE, DOCS_DIR, DONE_STATUS, FR_FILE, FR_HEADING_RE,
+                    GLOBAL_SF_DIR, HEADING_ANCHOR_RE, INDEX_NAME, INLINE_LINK_RE, JOURNAL_ENTRY_RE, NOTE_FINAL,
+                    NOTE_KINDS, NOTE_OWNER_RE, NOTE_RE, NOTE_STATUS_RE, PRIORITY_ORDER, REF_LINK_RE, REGISTRY_DIR,
+                    REQUIREMENT_ID_RE, SF_STATUSES, STATUS_CSS, STATUS_DESCRIPTIONS, STATUS_ICONS)
 
 H1_LINE_RE = re.compile(r"^#[ \t]+.+$", re.MULTILINE)
 FENCE_RE = re.compile(r"^(```|~~~).*?^\1[ \t]*$", re.MULTILINE | re.DOTALL)
@@ -53,7 +54,14 @@ NO_PRIORITY = "не указан"
 # ---------------------------------------------------------------------------
 
 def place(path: Path, features: list[Feature]) -> str:
-    """Подпись файла для списков: «Фича → SF (файл)»."""
+    """Подпись файла для списков: «Фича → SF (файл)», «Глобальные требования → SF-G (файл)»."""
+    global_root = DOCS_DIR / GLOBAL_SF_DIR
+    if global_root in path.parents:
+        top = path.relative_to(global_root).parts
+        file = "" if path.name == INDEX_NAME else f" ({path.name})"
+        if len(top) > 1:
+            return f"Глобальные требования → {sf_title(global_root / top[0]) or top[0]}{file}"
+        return f"Глобальные требования{file}"
     for f in features:
         if path.parent == f.folder:
             return f.title if path.name == INDEX_NAME else f"{f.title} ({path.name})"
@@ -82,23 +90,6 @@ def esc(text: str) -> str:
     return html.escape(text, quote=True)
 
 
-def tile(status: str, count: int) -> str:
-    zero = " is-zero" if count == 0 else ""
-    return (f'<span class="dash-tile dash-{STATUS_CSS[status]}{zero}"><span class="dash-tile__top">'
-            f'{STATUS_ICONS[status]} {count}</span><span class="dash-tile__name">{esc(status)}</span></span>')
-
-
-def tiles_block(title: str, anchor: str, lead: str | None, total_label: str, counts: Counter, statuses: list[str]) -> list[str]:
-    lines = [f"## {title} {{#{anchor}}}", ""]
-    if lead:
-        lines += [lead, ""]
-    lines += [f'<div class="dash-total" markdown="span">{TOTAL_ICON} <span class="dash-total__name">{esc(total_label)}</span> '
-              f'<b>{sum(counts.values())}</b></div>', "",
-              f'<div class="dash-tiles" data-n="{len(statuses)}" markdown>', "",
-              *(tile(s, counts[s]) for s in statuses), "", "</div>", ""]
-    return lines
-
-
 def statuses_info() -> list[str]:
     rows = [f"- {STATUS_ICONS[s]} {s}: {STATUS_DESCRIPTIONS[s]}" for s in [*SF_STATUSES, "в работе"]]
     return ['<details class="info dash-info" markdown>', "<summary>Статусы функциональностей</summary>", "", *rows, "",
@@ -119,8 +110,8 @@ def progress_block(features: list[Feature]) -> list[str]:
                     f'<small>{esc(info)}</small></div><div class="dash-bar">{segments}</div>'
                     f'<div class="dash-progress__done">реализовано <b>{done} из {len(active)}</b></div></div>')
     legend = "".join(f'<span class="dash-{STATUS_CSS[s]}"><i></i>{esc(s)}</span>' for s in order)
-    return ["## Прогресс по фичам {#dash-progress}", "",
-            "Доля SF фичи в каждом статусе; SF в архиве не учитываются.", "",
+    return ["## Прогресс по F {#dash-progress}", "",
+            "Доля SF, включенных в F, в каждом статусе; SF в архиве не учитываются.", "",
             '<div class="dash-progress">' + "".join(rows) + "</div>", "",
             f'<div class="dash-legend">{legend}</div>', ""]
 
@@ -150,83 +141,99 @@ def matrix_block(features: list[Feature]) -> list[str]:
 @dataclass
 class Check:
     title: str
-    items: list[str]          # HTML-строки списка
+    items: list[str]          # строки списка (Markdown)
     count: int                # число замечаний (бейдж)
     ok_note: str = ""         # дополнение к «Замечаний нет»
 
 
-def code(text: str) -> str:
-    return f"<code>{esc(text)}</code>"
+def md(text: str) -> str:
+    """Текст для строки списка Markdown: экранирование символов разметки."""
+    return re.sub(r"([\\`*_\[\]<>|])", r"\\\1", text)
+
+
+def link(path: Path, anchor: str | None, label: str, as_code: bool = True) -> str:
+    """Ссылка Markdown на файл (и раздел) относительно страницы дашборда: Zensical сам пересчитает её в адрес."""
+    target = os.path.relpath(path, (DOCS_DIR / DASHBOARD_PAGE).parent).replace(os.sep, "/")
+    text = f"`{label}`" if as_code else md(label)
+    return f"[{text}]({target}{'#' + anchor if anchor else ''})"
+
+
+def anchor_before(text: str, pos: int) -> str | None:
+    """Якорь ближайшего заголовка выше позиции pos (раздел, в котором стоит пункт)."""
+    found = None
+    for m in HEADING_ANCHOR_RE.finditer(text, 0, pos):
+        found = m.group("id")
+    return found
+
+
+def attention_files() -> list[Path]:
+    return sorted(p for d in ATTENTION_DIRS for p in (DOCS_DIR / d).rglob("*.md"))
 
 
 def check_fr(features: list[Feature]) -> tuple[Check, Check]:
-    no_fr: dict[str, list[str]] = defaultdict(list)
+    no_fr: list[str] = []
     no_ac: list[str] = []
-    no_fr_count = no_ac_count = 0
+    no_ac_count = 0
     for f in features:
         for s in f.subs:
             path = s.folder / FR_FILE
-            text = FENCE_RE.sub(lambda m: m.group(0) if ACCEPTANCE_MARK in m.group(0) else "", read(path)) \
-                if path.is_file() else ""
+            raw = read(path) if path.is_file() else ""
+            text = FENCE_RE.sub(lambda m: m.group(0) if ACCEPTANCE_MARK in m.group(0) else "", raw)
             heads = list(FR_HEADING_RE.finditer(text))
             if not heads:
-                no_fr[f.title].append(s.title)
-                no_fr_count += 1
+                no_fr.append(link(s.index, None, f"{f.title} → {s.title}", as_code=False))
                 continue
             missing = []
             for i, h in enumerate(heads):
                 block = text[h.end():heads[i + 1].start() if i + 1 < len(heads) else len(text)]
                 if ACCEPTANCE_MARK not in block:
-                    missing.append(h.group("id"))
+                    missing.append(link(path, anchor_before(text, h.end()), h.group("id")))
             if missing:
-                no_ac.append(f"{esc(f.title)} → {esc(s.title)}: " + ", ".join(code(m) for m in missing))
+                no_ac.append(f"{md(f.title)} → {md(s.title)}: " + ", ".join(missing))
                 no_ac_count += len(missing)
-    return (Check("SF без функциональных требований (FR)",
-                  [f"{esc(t)} → {esc(', '.join(names))}" for t, names in no_fr.items()], no_fr_count),
+    return (Check("SF без функциональных требований (FR)", no_fr, len(no_fr)),
             Check("FR без критериев приёмки", no_ac, no_ac_count))
 
 
 def check_priority(features: list[Feature]) -> Check:
-    items: dict[str, list[str]] = defaultdict(list)
-    for f in features:
-        for s in f.subs:
-            if not s.priority:
-                items[f.title].append(s.title)
-    return Check("SF без приоритета", [f"{esc(t)} → {esc(', '.join(n))}" for t, n in items.items()],
-                 sum(len(n) for n in items.values()))
-
-
-def registry_files() -> list[Path]:
-    return sorted((DOCS_DIR / REGISTRY_DIR).rglob("*.md"))
+    items = [link(s.index, None, f"{f.title} → {s.title}", as_code=False)
+             for f in features for s in f.subs if not s.priority]
+    return Check("SF без приоритета", items, len(items))
 
 
 def check_codes(features: list[Feature]) -> Check:
-    seen: dict[str, list[Path]] = defaultdict(list)
-    for path in registry_files():
-        for m in REQUIREMENT_ID_RE.finditer(FENCE_RE.sub("", read(path))):
-            seen[m.group("id")].append(path)
+    seen: dict[str, list[tuple[Path, str | None]]] = defaultdict(list)
+    for path in attention_files():
+        text = FENCE_RE.sub("", read(path))
+        for m in REQUIREMENT_ID_RE.finditer(text):
+            end = text.find("\n", m.end())
+            seen[m.group("id")].append((path, anchor_before(text, len(text) if end < 0 else end)))
     items = []
-    for rid, paths in sorted(seen.items()):
-        if len(paths) > 1:
-            names = group_places([place(p, features) for p in paths])
-            items.append(f"{code(rid)} — в {len(paths)} местах: {esc(names)}")
+    for rid, places in sorted(seen.items()):
+        if len(places) > 1:
+            where = ", ".join(link(p, a, place(p, features), as_code=False) for p, a in places)
+            items.append(f"`{rid}` — в {len(places)} местах: {where}")
     return Check("Повторяющиеся коды", items, len(items))
 
 
-def check_assumptions(features: list[Feature]) -> Check:
+def check_notes(features: list[Feature]) -> Check:
     items, total = [], 0
-    for path in registry_files():
-        for m in ASSUMPTION_RE.finditer(read(path)):
+    for path in attention_files():
+        text = read(path)
+        for m in NOTE_RE.finditer(text):
             total += 1
-            status = ASSUMPTION_STATUS_RE.search(m.group("body"))
+            kind = m.group("kind")
+            status = NOTE_STATUS_RE.search(m.group("body"))
             value = status.group("value").strip() if status else ""
-            if value.lower() != ASSUMPTION_ACCEPTED:
-                owner = ASSUMPTION_OWNER_RE.search(m.group("body"))
-                who = f", подтверждает: {esc(owner.group('value'))}" if owner and owner.group("value") else ""
-                items.append(f"{code(m.group('id'))} — статус «{esc(value or 'не указан')}»{who} "
-                             f"({esc(place(path, features))})")
-    note = f"{total - len(items)} из {total} приняты" if total else ""
-    return Check("Неподтверждённые допущения", items, len(items), note)
+            if value.lower() in NOTE_FINAL[kind]:
+                continue
+            owner = NOTE_OWNER_RE.search(m.group("body"))
+            role = "подтверждает" if kind == "H" else "решает"
+            who = f", {role}: {md(owner.group('value'))}" if owner and owner.group("value") else ""
+            items.append(f"{link(path, anchor_before(text, m.start()), m.group('id'))} — {NOTE_KINDS[kind]}, "
+                         f"статус «{md(value or 'не указан')}»{who} ({md(place(path, features))})")
+    note = f"{total - len(items)} из {total} в финальном статусе" if total else ""
+    return Check("Неподтверждённые вопросы и допущения", items, len(items), note)
 
 
 def anchors_of(path: Path, cache: dict[Path, set[str]]) -> set[str]:
@@ -237,12 +244,12 @@ def anchors_of(path: Path, cache: dict[Path, set[str]]) -> set[str]:
 
 def check_links(features: list[Feature]) -> Check:
     cache: dict[Path, set[str]] = {}
-    broken: dict[Path, list[tuple[str, str]]] = defaultdict(list)
-    for path in registry_files():
+    items, total = [], 0
+    for path in attention_files():
         text = FENCE_RE.sub("", read(path))
-        found = [(m.group("label"), m.group("url")) for m in REF_LINK_RE.finditer(text)]
-        found += [("", m.group("url")) for m in INLINE_LINK_RE.finditer(text)]
-        for label, url in found:
+        found = [(m.group("label"), m.group("url"), m.start()) for m in REF_LINK_RE.finditer(text)]
+        found += [("", m.group("url"), m.start()) for m in INLINE_LINK_RE.finditer(text)]
+        for label, url, pos in sorted(found, key=lambda x: x[2]):
             if re.match(r"^[a-z][a-z0-9+.-]*:", url, re.IGNORECASE):     # http:, mailto: и т. п.
                 continue
             target, _, anchor = url.partition("#")
@@ -250,29 +257,24 @@ def check_links(features: list[Feature]) -> Check:
                 continue
             target_path = (path.parent / target).resolve() if target else path.resolve()
             if not target_path.is_file() or (anchor and anchor not in anchors_of(target_path, cache)):
-                broken[path].append((label, url))
-    items = []
-    for path, links in broken.items():
-        label, url = links[0]
-        example = f"{code(label)} → {code(url)}" if label else code(url)
-        items.append(f"{esc(place(path, features))}: {len(links)} — например, {example}")
-    return Check("Битые ссылки (ведут на несуществующий файл или раздел)", items, sum(len(v) for v in broken.values()))
+                total += 1
+                shown = f"`{md(label)}` → `{url}`" if label else f"`{url}`"
+                items.append(f"{link(path, anchor_before(text, pos), place(path, features), as_code=False)}: {shown}")
+    return Check("Битые ссылки (ведут на несуществующий файл или раздел)", items, total)
 
 
 def attention_block(features: list[Feature]) -> list[str]:
     no_fr, no_ac = check_fr(features)
-    checks = [no_fr, no_ac, check_priority(features), check_codes(features), check_assumptions(features),
+    checks = [no_fr, no_ac, check_priority(features), check_codes(features), check_notes(features),
               check_links(features)]
     bad = [c for c in checks if c.count]
     hint = f"Групп с замечаниями: {len(bad)}, замечаний: {sum(c.count for c in bad)}." if bad else "Замечаний нет."
     lines = ["## Требует внимания {#dash-attention}", "", hint, ""]
     for c in checks:
         if c.count:
-            shown = c.items[:ATTENTION_LIST_LIMIT]
-            more = len(c.items) - len(shown)
-            lis = "".join(f"<li>{i}</li>" for i in shown) + (f'<li class="dash-more">…ещё {more}</li>' if more else "")
-            lines += [f'<details class="warning dash-check" open><summary>{esc(c.title)}'
-                      f'<span class="dash-count">{c.count}</span></summary><ul>{lis}</ul></details>', ""]
+            lines += [f'<details class="warning dash-check" open markdown>',
+                      f'<summary>{esc(c.title)}<span class="dash-count">{c.count}</span></summary>', "",
+                      *(f"- {i}" for i in c.items), "", "</details>", ""]
         else:
             note = f" · {esc(c.ok_note)}" if c.ok_note else ""
             lines += [f'<details class="success dash-check"><summary>{esc(c.title)}'
@@ -309,12 +311,7 @@ def changes_block(features: list[Feature]) -> list[str]:
 # ---------------------------------------------------------------------------
 
 def render(features: list[Feature]) -> str:
-    f_counts = Counter(f.status for f in features if f.status)
-    sf_counts = Counter(s.status for f in features for s in f.subs if s.status)
     lines = [DASHBOARD_BEGIN, "", *statuses_info(),
-             *tiles_block("Основные функциональности (F)", "dash-f", "Статус F вычисляется по статусам её SF.",
-                          "Всего F", f_counts, F_STATUSES),
-             *tiles_block("Детальные функциональности (SF)", "dash-sf", None, "Всего SF", sf_counts, SF_STATUSES),
              *progress_block(features), *matrix_block(features), *attention_block(features), *changes_block(features),
              DASHBOARD_END]
     return "\n".join(lines)

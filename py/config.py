@@ -100,23 +100,26 @@ NAV = [
     ("Требования", [
         ("Глоссарий", "requirements/business-context/glossary.md"),
         ("Бизнес-требования", "requirements/business-context/business-requirements.md"),
-        ("Глобальные требования", [
-            "requirements/global/index.md",
-            ("Дизайн-система", "requirements/global/design-system/index.md"),
-            ("Требования к API", "requirements/global/ar.md"),
-            ("Нефункциональные требования", "requirements/global/nfr.md"),
-            ("Системные требования", "requirements/global/sr.md"),
-            GLOBAL_SF,
-        ]),
         REGISTRY,
     ]),
     ("Архив", "requirements-archive/index.md"),
 ]
 
-# --- Группа реестра ---
-# Папка реестра: каждая её подпапка с index.md — фича. Индекс самой папки открывается щелчком на группе.
-REGISTRY_TITLE = "Реестр требований"
+# --- Группа реестра («Требования к продукту») ---
+# Папка реестра: каждая её подпапка с index.md — фича. Индекс самой папки (страница с дашбордом) открывается щелчком
+# на группе. Внутри группы сначала идут пункты REGISTRY_LEAD (в том же виде, что NAV), затем фичи.
+REGISTRY_TITLE = "Требования к продукту"
 REGISTRY_DIR = "requirements/features"
+REGISTRY_LEAD = [
+    ("Глобальные требования", [
+        "requirements/global/index.md",
+        ("Дизайн-система", "requirements/global/design-system/index.md"),
+        ("Требования к API", "requirements/global/ar.md"),
+        ("Нефункциональные требования", "requirements/global/nfr.md"),
+        ("Системные требования", "requirements/global/sr.md"),
+        GLOBAL_SF,
+    ]),
+]
 
 # Название фичи — текст после ID в заголовке требования F в index.md фичи: «## F-PT. Справочник видов изделий {#f-pt}»
 # → «Справочник видов изделий». Нет такого заголовка — заголовок первого уровня без якоря (с предупреждением), нет и
@@ -161,11 +164,8 @@ GLOBAL_SF_TITLE = "Глобальные функциональности"
 GLOBAL_SF_DIR = "requirements/global"
 GLOBAL_SF_PREFIX = "sf-g-"
 # Название в меню — текст после ID в заголовке SF в index.md папки («## SF-G-PAG. Пагинация {#sf-g-pag}»), иначе имя
-# папки (с предупреждением). Порядок в меню — порядок папок в списке; папки не из списка идут после, по алфавиту.
-GLOBAL_SF_ORDER = [
-    "sf-g-dict", "sf-g-catalog", "sf-g-table", "sf-g-pag", "sf-g-sort", "sf-g-search", "sf-g-filter",
-    "sf-g-columns", "sf-g-select", "sf-g-confirm", "sf-g-form", "sf-g-lock", "sf-g-session", "sf-g-toast",
-]
+# папки (с предупреждением). Порядок — поле `order` в метаданных index.md (меньше — выше, как у фич), без него — после,
+# по имени папки.
 
 # Название SF — текст после ID в заголовке SF в index.md («## SF-PT-CREATE. Создание записи {#sf-pt-create}»)
 SF_TITLE_RE = re.compile(
@@ -226,8 +226,7 @@ DASHBOARD_BEGIN_PREFIX = "<!-- BEGIN GENERATED DASHBOARD"
 DASHBOARD_END = "<!-- END GENERATED DASHBOARD -->"
 DASHBOARD_RE = re.compile(re.escape(DASHBOARD_BEGIN_PREFIX) + r"[^\n]*\n.*?" + re.escape(DASHBOARD_END), re.DOTALL)
 
-# Статусы на плитках F (что может получить фича) и класс оформления каждого статуса (custom/css/extra.css)
-F_STATUSES = ["бэклог", "в работе", "реализовано", "архив"]
+# Класс оформления каждого статуса (custom/css/extra.css)
 STATUS_CSS = {
     "бэклог": "backlog",
     "анализ": "analysis",
@@ -247,7 +246,6 @@ STATUS_DESCRIPTIONS = {
     "архив": "отклонённое или устаревшее требование",
     "в работе": "только у F: часть её SF уже в работе, но реализованы ещё не все",
 }
-TOTAL_ICON = ":lucide-files:"
 
 # Проверки блока «Требует внимания»
 FR_FILE = "fr.md"                                    # функциональные требования SF
@@ -257,15 +255,21 @@ ACCEPTANCE_MARK = "```gherkin"                       # критерии приё
 # конец строки
 REQUIREMENT_ID_RE = re.compile(
     r"^#{1,3}[ \t]+(?P<id>(?:F|SF|FR|DR|AR|UC|NFR|UI)-[A-Z0-9]+(?:-[A-Z0-9]+)*)(?=[.: \t{]|$)", re.MULTILINE)
-ASSUMPTION_RE = re.compile(r"^[-*][ \t]+\*\*(?P<id>[A-Z0-9]+(?:-[A-Z0-9]+)*\.H\d+)\*\*[ \t]*\n(?P<body>(?:[ \t]+\S.*\n?)*)",
-                           re.MULTILINE)
-ASSUMPTION_STATUS_RE = re.compile(r"\*\*Статус\*\*:[ \t]*(?P<value>.*?)[ \t]*$", re.MULTILINE)
-ASSUMPTION_OWNER_RE = re.compile(r"\*\*Подтверждает\*\*:[ \t]*(?P<value>.*?)[ \t]*$", re.MULTILINE)
-ASSUMPTION_ACCEPTED = "принято"
+# Вопросы (….Q01) и допущения (….H01): пункт списка «- **FR-PT-LIST-001.H01**» с вложенными атрибутами
+NOTE_RE = re.compile(
+    r"^[-*][ \t]+\*\*(?P<id>[A-Z0-9]+(?:-[A-Z0-9]+)*\.(?P<kind>[HQ])\d+)\*\*[ \t]*\n(?P<body>(?:[ \t]+\S.*\n?)*)",
+    re.MULTILINE)
+NOTE_STATUS_RE = re.compile(r"\*\*Статус\*\*:[ \t]*(?P<value>.*?)[ \t]*$", re.MULTILINE)
+NOTE_OWNER_RE = re.compile(r"\*\*(?:Подтверждает|Решает)\*\*:[ \t]*(?P<value>.*?)[ \t]*$", re.MULTILINE)
+NOTE_KINDS = {"Q": "вопрос", "H": "допущение"}
+# Финальные статусы: пункт с таким статусом в «Неподтверждённые вопросы и допущения» не попадает
+NOTE_FINAL = {"Q": {"закрыт"}, "H": {"принято", "подтверждено", "отвергнуто"}}
+# Папки, где ищутся вопросы и допущения, повторяющиеся коды и битые ссылки (относительно docs/)
+ATTENTION_DIRS = ["requirements/global", "requirements/features"]
+HEADING_ANCHOR_RE = re.compile(r"^#{1,6}[ \t]+.*?\{#(?P<id>[\w-]+)[^}\n]*\}[ \t]*$", re.MULTILINE)
 ANCHOR_RE = re.compile(r"\{#(?P<id>[\w-]+)|\bid=[\"'](?P<html>[\w-]+)[\"']")
 REF_LINK_RE = re.compile(r"^\[(?P<label>[^\]]+)\]:[ \t]*<?(?P<url>[^>\s]+)>?", re.MULTILINE)
 INLINE_LINK_RE = re.compile(r"\]\((?P<url>[^)\s]+)\)")
-ATTENTION_LIST_LIMIT = 10                            # сколько строк показывать в группе, остальное — «…ещё N»
 
 # «Последние изменения»: сколько записей журналов показывать
 CHANGES_LIMIT = 5
