@@ -33,7 +33,8 @@ F — index.md папки фичи
 учитываются, если есть другие. В тексте F строку «Приоритет» не ведут.
 
 У фичи без SF метаданные не меняются. В index.md фичи скрипт обновляет `priority`, `status` (русское название:
-«в работе», «реализовано»…) и `icon`, а также строку `- **Статус**: …`, если она в файле есть.
+«в работе», «реализовано»… — его выводит паспорт страницы) и строку `- **Статус**: …`, если она в файле есть. Поля
+`icon` у F нет (скрипт его удаляет): в левом меню у фичи значка нет, значки — только у SF.
 
 Все настройки — в py/config.py, обход реестра и правила вычисления — в py/common.py. Сторонние пакеты не нужны: только стандартная библиотека Python 3.10+.
 """
@@ -43,7 +44,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from common import Feature, load, registry, rel, save, set_meta
+from common import Feature, load, registry, rel, remove_meta, save, set_meta
 from config import (ICON_KEY, PRIORITY_KEY, PRIORITY_ORDER, SF_STATUSES, STATUS_ICONS, STATUS_KEY, STATUS_LINE_RE)
 
 
@@ -58,11 +59,13 @@ def set_status_line(text: str, status: str) -> str:
 
 
 def apply(text: str, status: str, priority: str | None, feature: bool) -> str:
-    """`priority`, `status` и `icon` в метаданных; feature=True — index.md фичи: ещё и строка «Статус», если она есть."""
+    """`priority`, `status` и `icon` в метаданных SF; feature=True — index.md фичи: `priority` и `status`, поле `icon`
+    удаляется (у F в левом меню значка нет), строка «Статус» обновляется, если она есть."""
     text = set_meta(text, PRIORITY_KEY, priority or "", first=True)
     text = set_meta(text, STATUS_KEY, status)
-    text = set_meta(text, ICON_KEY, icon_of(status), quote=False, after=STATUS_KEY)
-    return set_status_line(text, status) if feature else text
+    if feature:
+        return set_status_line(remove_meta(text, ICON_KEY), status)
+    return set_meta(text, ICON_KEY, icon_of(status), quote=False, after=STATUS_KEY)
 
 
 def check(features: list[Feature], errors: list[str], warnings: list[str]) -> None:

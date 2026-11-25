@@ -95,6 +95,15 @@ def set_meta(text: str, key: str, value: str, *, quote: bool = True, after: str 
     return text[:match.start(1)] + block + text[match.end(1):]
 
 
+def remove_meta(text: str, key: str) -> str:
+    """Удаляет поле `key` из метаданных (вместе с его строкой). Текста без метаданных или без поля не меняет."""
+    match = FRONT_MATTER_RE.match(text)
+    if not match:
+        return text
+    block = re.sub(rf"^{re.escape(key)}:[^\n]*\n", "", match.group(1), count=1, flags=re.MULTILINE)
+    return text[:match.start(1)] + block + text[match.end(1):]
+
+
 # ---------------------------------------------------------------------------
 # Статус и приоритет
 # ---------------------------------------------------------------------------
