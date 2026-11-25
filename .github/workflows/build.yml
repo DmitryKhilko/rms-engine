@@ -4,7 +4,7 @@ name: rms-build
 #
 #   jobs:
 #     ci:
-#       uses: OwnerName/rms-engine/.github/workflows/build.yml@v1
+#       uses: DmitryKhilko/rms-engine/.github/workflows/build.yml@v1
 #       with:
 #         engine_ref: v1          # та же версия движка, что в строке uses
 #       permissions: { contents: write, pages: write, id-token: write }
@@ -24,7 +24,7 @@ on:
       engine_repository:
         description: "Репозиторий движка"
         type: string
-        default: OwnerName/rms-engine
+        default: DmitryKhilko/rms-engine
       python_version:
         type: string
         default: "3.14.10"

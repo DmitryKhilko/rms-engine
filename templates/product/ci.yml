@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   ci:
-    uses: OwnerName/rms-engine/.github/workflows/build.yml@v1
+    uses: DmitryKhilko/rms-engine/.github/workflows/build.yml@v1
     with:
       engine_ref: v1
     permissions:

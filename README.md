@@ -37,7 +37,7 @@
 
 ## Версии движка
 
-Продукт подключает движок по тегу: `uses: OwnerName/rms-engine/.github/workflows/build.yml@v1` и
+Продукт подключает движок по тегу: `uses: DmitryKhilko/rms-engine/.github/workflows/build.yml@v1` и
 `engine_ref: v1` (в обеих строках — одна и та же версия).
 
 * Каждый выпуск получает точный тег `vX.Y.Z` (например, `v1.0.0`, `v1.1.0`).
@@ -65,7 +65,7 @@ token или токен GitHub App) в секретах продукта или 
 В корне репозитория продукта:
 
 ```sh
-git clone --depth 1 --branch v1 https://github.com/OwnerName/rms-engine engine
+git clone --depth 1 --branch v1 https://github.com/DmitryKhilko/rms-engine engine
 pip install zensical -r engine/py/requirements.txt
 zensical serve
 ```
