@@ -11,16 +11,18 @@
 меню явно, с русскими названиями, и пересобирает его при каждом запуске: новая фича или подфункциональность появляется
 в меню без ручной правки zensical.toml.
 
-Как собирается меню (названия и порядок — py/config.py движка и rms.toml продукта)
---------------------------------------------------------------------
-* Неизменная часть меню — список NAV. Вместо элемента REGISTRY подставляется группа «Реестр требований», вместо
-  GLOBAL_SF — группа «Глобальные функциональности» (папки GLOBAL_SF_DIR с приставкой GLOBAL_SF_PREFIX, названия —
-  GLOBAL_SF_TITLES, файлы внутри — по FILE_TITLES, как у подфункциональностей реестра).
+Как собирается меню (названия и порядок — py/config.py движка; настроек в репозитории продукта нет)
+-----------------------------------------------------------------------------------------------
+* Неизменная часть меню — список NAV (стандартная структура docs/): страниц, которых у продукта нет, в меню нет.
+  Вместо элемента REGISTRY подставляется группа «Реестр требований», вместо GLOBAL_SF — группа «Глобальные
+  функциональности» (папки GLOBAL_SF_DIR с приставкой GLOBAL_SF_PREFIX в порядке GLOBAL_SF_ORDER; название — текст
+  после ID в заголовке SF их index.md; файлы внутри — по FILE_TITLES, как у подфункциональностей реестра).
 * Группа реестра: индекс папки REGISTRY_DIR, затем фичи — подпапки с index.md, по полю `order` их index.md, затем по
   имени папки. Название фичи — текст после ID в заголовке F в её index.md («## F-PT. Справочник видов изделий»;
   запасные варианты — заголовок первого уровня, имя папки).
 * Внутри фичи: index.md (открывается щелчком на группе), затем файлы фичи (FILE_TITLES с приставкой
-  FEATURE_FILE_PREFIX: «Общие UC», «Общие DR»…), затем подпапки (FOLDER_TITLES: «Список», «Создание»…).
+  FEATURE_FILE_PREFIX: «Общие UC», «Общие DR»…), затем подпапки (FOLDER_TITLES: «Список», «Создание»…;
+  папка sf-* не из словаря — по заголовку SF её index.md).
 * Внутри подпапки: index.md, затем файлы (FILE_TITLES: «DR», «FR»…) и вложенные подпапки по тем же правилам.
   Подпапка, в которой только index.md, — отдельная страница, а не группа. Папки без .md-файлов (например, api/)
   пропускаются.
@@ -37,9 +39,9 @@ import sys
 import tomllib
 from pathlib import Path
 
-from common import dict_key, registry, rel
+from common import dict_key, registry, rel, sf_title
 from config import (DOCS_DIR, FEATURE_FILE_PREFIX, FILE_TITLES, FOLDER_TITLES, GLOBAL_SF, GLOBAL_SF_DIR,
-                    GLOBAL_SF_PREFIX, GLOBAL_SF_TITLE, GLOBAL_SF_TITLES, INDEX_NAME, NAV, NAV_BEGIN, NAV_END, NAV_RE,
+                    GLOBAL_SF_ORDER, GLOBAL_SF_PREFIX, GLOBAL_SF_TITLE, INDEX_NAME, NAV, NAV_BEGIN, NAV_END, NAV_RE,
                     REGISTRY, REGISTRY_DIR, REGISTRY_TITLE, ZENSICAL_CONFIG)
 
 
@@ -60,13 +62,15 @@ def folder_items(folder: Path, file_prefix: str, warnings: list[str]) -> list:
     files = [p for p in folder.glob("*.md") if p.name != INDEX_NAME]
     for path in sorted(files, key=lambda p: dict_key(p.name, FILE_TITLES)):
         if path.name not in FILE_TITLES:
-            warnings.append(f"{rel(path)}: файла нет в словаре названий — добавьте в [titles.files] файла rms.toml — в меню «{path.name}»")
+            warnings.append(f"{rel(path)}: файла нет в словаре FILE_TITLES движка — в меню «{path.name}»")
         items.append((file_prefix + FILE_TITLES.get(path.name, path.name), rel(path)))
     subfolders = [p for p in folder.iterdir() if p.is_dir() and has_pages(p)]
     for sub in sorted(subfolders, key=lambda p: dict_key(p.name, FOLDER_TITLES)):
-        if sub.name not in FOLDER_TITLES:
-            warnings.append(f"{rel(sub)}/: папки нет в словаре названий — добавьте в [titles.folders] файла rms.toml — в меню «{sub.name}»")
-        title = FOLDER_TITLES.get(sub.name, sub.name)
+        title = FOLDER_TITLES.get(sub.name) or sf_title(sub)
+        if not title:
+            title = sub.name
+            warnings.append(f"{rel(sub)}/: папки нет в словаре FOLDER_TITLES движка и нет заголовка «## SF-…. Название»"
+                            f" в её {INDEX_NAME} — в меню «{sub.name}»")
         children = folder_items(sub, "", warnings)
         # Только index.md — отдельная страница; иначе группа, которую открывает её index.md
         items.append((title, children[0]) if children == [rel(sub / INDEX_NAME)] else (title, children))
@@ -92,21 +96,25 @@ def global_sf_group(warnings: list[str]) -> tuple[str, list]:
     root = DOCS_DIR / GLOBAL_SF_DIR
     folders = [p for p in root.glob(GLOBAL_SF_PREFIX + "*") if p.is_dir() and (p / INDEX_NAME).is_file()]
     items: list = []
-    for folder in sorted(folders, key=lambda p: dict_key(p.name, GLOBAL_SF_TITLES)):
-        if folder.name not in GLOBAL_SF_TITLES:
-            warnings.append(f"{rel(folder)}/: папки нет в словаре названий — добавьте в [global_sf.titles] файла rms.toml — в меню «{folder.name}»")
+    order = {name: i for i, name in enumerate(GLOBAL_SF_ORDER)}
+    for folder in sorted(folders, key=lambda p: (order.get(p.name, len(order)), p.name)):
+        title = sf_title(folder)
+        if not title:
+            title = folder.name
+            warnings.append(f"{rel(folder)}/{INDEX_NAME}: нет заголовка «## SF-G-…. Название» — в меню «{folder.name}»")
         children = folder_items(folder, "", warnings)
-        title = GLOBAL_SF_TITLES.get(folder.name, folder.name)
         items.append((title, children[0]) if children == [rel(folder / INDEX_NAME)] else (title, children))
     return GLOBAL_SF_TITLE, items
 
 
 def expand(items: list, warnings: list[str]) -> list:
-    """Неизменная часть меню (NAV) с группой реестра на месте REGISTRY; отсутствующие страницы пропускаются."""
+    """Неизменная часть меню (NAV) с группами на местах REGISTRY и GLOBAL_SF; страниц, которых нет, в меню нет."""
     result: list = []
     for item in items:
         if item == REGISTRY:
-            result.append(registry_group(warnings))
+            title, children = registry_group(warnings)
+            if children:
+                result.append((title, children))
         elif item == GLOBAL_SF:
             title, children = global_sf_group(warnings)
             if children:
@@ -114,8 +122,6 @@ def expand(items: list, warnings: list[str]) -> list:
         elif isinstance(item, str):
             if (DOCS_DIR / item).is_file():
                 result.append(item)
-            else:
-                warnings.append(f"config.py NAV: нет файла docs/{item} — пропущен")
         else:
             title, value = item
             if isinstance(value, list):
@@ -124,8 +130,6 @@ def expand(items: list, warnings: list[str]) -> list:
                     result.append((title, children))
             elif (DOCS_DIR / value).is_file():
                 result.append((title, value))
-            else:
-                warnings.append(f"config.py NAV: нет файла docs/{value} («{title}») — пропущен")
     return result
 
 

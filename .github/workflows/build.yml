@@ -107,7 +107,7 @@ jobs:
           dot -V
           plantuml -version | head -2
 
-      # Скрипты движка запускаются из корня репозитория продукта: они работают с его docs/, zensical.toml и rms.toml.
+      # Скрипты движка запускаются из корня репозитория продукта: они работают с его docs/ и zensical.toml.
       # Общие настройки сайта (тема, расширения Markdown): блок BEGIN/END ENGINE SETTINGS в zensical.toml продукта
       # переписывается из zensical.base.toml движка.
       - name: Apply engine site settings

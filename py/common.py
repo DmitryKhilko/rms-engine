@@ -7,6 +7,8 @@
 * set_meta — единственная функция записи поля в метаданные (YAML Front Matter).
 * registry() — фичи (F) и их подфункциональности (SF) в том порядке, в каком они идут в меню: фичи по полю `order`
   их index.md, затем по имени папки; SF — по порядку словаря FOLDER_TITLES. Статус и приоритет F вычисляются здесь же.
+* sf_title() — название SF из заголовка её index.md (для папок sf-* не из FOLDER_TITLES и глобальных
+  функциональностей).
 """
 
 from __future__ import annotations
@@ -17,7 +19,7 @@ from pathlib import Path
 
 from config import (ARCHIVED_STATUS, BACKLOG_STATUS, DOCS_DIR, DONE_STATUS, FEATURE_TITLE_RE, FOLDER_TITLES,
                     FRONT_MATTER_RE, H1_RE, IN_PROGRESS_STATUS, INDEX_NAME, ORDER_KEY, PRIORITY_LINE_RE,
-                    PRIORITY_ORDER, REGISTRY_DIR, SF_FOLDER_PREFIX, SF_STATUSES, STATUS_LINE_RE)
+                    PRIORITY_ORDER, REGISTRY_DIR, SF_FOLDER_PREFIX, SF_STATUSES, SF_TITLE_RE, STATUS_LINE_RE)
 
 ORDER_RE = re.compile(rf"^{re.escape(ORDER_KEY)}:[ \t]*['\"]?(?P<order>-?\d+)['\"]?[ \t]*(?:#.*)?$", re.MULTILINE)
 
@@ -138,7 +140,7 @@ def feature_priority(items: list[tuple[str, str | None]]) -> str | None:
 @dataclass
 class SubFeature:
     folder: Path
-    title: str                       # название в меню (FOLDER_TITLES)
+    title: str                       # название в меню (FOLDER_TITLES, иначе заголовок SF)
     raw_status: str | None           # как записано в строке «Статус» (нижний регистр); None — строки нет
     raw_priority: str | None         # как записано в строке «Приоритет»; None — строки нет
 
@@ -198,6 +200,13 @@ def feature_title(index: Path, warnings: list[str]) -> str:
     return title
 
 
+def sf_title(folder: Path) -> str | None:
+    """Название SF: текст после ID в заголовке SF в index.md папки («## SF-G-PAG. Пагинация»); None — заголовка нет."""
+    index = folder / INDEX_NAME
+    found = SF_TITLE_RE.search(read(index)) if index.is_file() else None
+    return found.group("title") if found else None
+
+
 def feature_order(index: Path) -> int | None:
     found = ORDER_RE.search(front_matter(read(index)))
     return int(found.group("order")) if found else None
@@ -215,7 +224,8 @@ def registry(warnings: list[str]) -> list[Feature]:
                 and (p / INDEX_NAME).is_file()]
         for sf in sorted(subs, key=lambda p: dict_key(p.name, FOLDER_TITLES)):
             text = read(sf / INDEX_NAME)
-            feature.subs.append(SubFeature(sf, FOLDER_TITLES.get(sf.name, sf.name),
+            title = FOLDER_TITLES.get(sf.name) or sf_title(sf) or sf.name
+            feature.subs.append(SubFeature(sf, title,
                                            manual_status(text), manual_priority(text)))
         features.append(feature)
     features.sort(key=lambda f: (f.order is None, f.order or 0, f.folder.name))

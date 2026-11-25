@@ -3,9 +3,10 @@
 Файл не содержит логики: скрипты (changelog.py, status.py, nav.py, dashboard.py) берут отсюда все значения, которые
 может понадобиться поменять.
 
-Значения в этом файле — общие для всех продуктов предприятия (стандарт). То, что у каждого продукта своё, — неизменная
-часть меню, папки реестра и страница дашборда, названия папок и файлов в меню, глобальные функциональности, — продукт
-задаёт в файле rms.toml в корне своего репозитория (см. раздел «Настройки продукта» в конце файла и README движка).
+Значения в этом файле — стандарт предприятия, общий для всех продуктов: структура папок docs/, неизменная часть меню,
+названия папок и файлов в меню, статусы, оформление дашборда. В репозитории продукта настроек скриптов нет: аналитик
+ведёт только документы (docs/) и данные продукта в zensical.toml (название сайта, адреса, трекер задач). Названия фич
+и глобальных функциональностей в меню берутся из заголовков их index.md.
 
 Скрипты запускаются из корня репозитория продукта (python engine/py/<скрипт>.py): корень продукта — текущая папка
 или папка из переменной окружения RMS_PRODUCT_ROOT.
@@ -15,14 +16,12 @@ from __future__ import annotations
 
 import os
 import re
-import tomllib
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
 # Пути (репозиторий продукта)
 # ---------------------------------------------------------------------------
 REPO_ROOT = Path(os.environ.get("RMS_PRODUCT_ROOT") or Path.cwd()).resolve()   # корень репозитория продукта
-PRODUCT_SETTINGS = REPO_ROOT / "rms.toml"            # настройки продукта (необязательный файл)
 ENGINE_ROOT = Path(__file__).resolve().parents[1]    # корень движка (py/config.py → ..)
 DOCS_DIR = REPO_ROOT / "docs"                        # исходники сайта
 ZENSICAL_CONFIG = REPO_ROOT / "zensical.toml"        # настройки сайта: repo_url, блок меню
@@ -77,9 +76,9 @@ SITE_RE = re.compile(re.escape(SITE_BEGIN_PREFIX) + r"[^\n]*\n.*?" + re.escape(S
 # МЕНЮ САЙТА (nav.py)
 # ===========================================================================
 # Блок `nav = [...]` в zensical.toml между маркерами NAV_BEGIN и NAV_END целиком формирует nav.py. Неизменная часть меню
-# задаётся списком NAV ниже (продукт задаёт свой в rms.toml), а вместо элемента REGISTRY скрипт подставляет группу
-# реестра, собранную по папкам REGISTRY_DIR, вместо GLOBAL_SF — группу глобальных функциональностей из папок
-# GLOBAL_SF_DIR. Пути страниц — относительно docs/. Страницы, которых нет на диске, пропускаются (с предупреждением).
+# задаётся списком NAV ниже, а вместо элемента REGISTRY скрипт подставляет группу реестра, собранную по папкам
+# REGISTRY_DIR, вместо GLOBAL_SF — группу глобальных функциональностей из папок GLOBAL_SF_DIR. Пути страниц —
+# относительно docs/. Страницы, которой нет в docs/ продукта, в меню просто нет; группа без страниц тоже не выводится.
 
 NAV_BEGIN = "# BEGIN GENERATED NAV — не редактируйте вручную"
 NAV_BEGIN_PREFIX = "# BEGIN GENERATED NAV"
@@ -92,13 +91,26 @@ REGISTRY = "<REGISTRY>"
 # Место группы глобальных функциональностей в NAV
 GLOBAL_SF = "<GLOBAL_SF>"
 
-# Неизменная часть меню. Элемент: ("Название", "путь.md") — страница; ("Название", [элементы]) — группа;
-# "путь.md" без названия — индекс группы (первым элементом группы: щелчок на группе открывает эту страницу).
-# Здесь — меню по умолчанию; продукт задаёт своё в rms.toml ([nav] items), где место групп обозначают строки "@registry"
-# и "@global_sf".
+# Неизменная часть меню — стандартная структура docs/. Элемент: ("Название", "путь.md") — страница; ("Название",
+# [элементы]) — группа; "путь.md" без названия — индекс группы (первым элементом группы: щелчок на группе открывает
+# эту страницу).
 NAV = [
     ("О продукте", "index.md"),
-    ("Требования", [GLOBAL_SF, REGISTRY]),
+    ("Проект", "project/index.md"),
+    ("Требования", [
+        ("Глоссарий", "requirements/business-context/glossary.md"),
+        ("Бизнес-требования", "requirements/business-context/business-requirements.md"),
+        ("Глобальные требования", [
+            "requirements/global/index.md",
+            ("Дизайн-система", "requirements/global/design-system/index.md"),
+            ("Требования к API", "requirements/global/ar.md"),
+            ("Нефункциональные требования", "requirements/global/nfr.md"),
+            ("Системные требования", "requirements/global/sr.md"),
+            GLOBAL_SF,
+        ]),
+        REGISTRY,
+    ]),
+    ("Архив", "requirements-archive/index.md"),
 ]
 
 # --- Группа реестра ---
@@ -117,7 +129,8 @@ H1_RE = re.compile(r"^#[ \t]+(?P<title>.+?)(?:[ \t]*\{[^}]*\})?[ \t]*$", re.MULT
 ORDER_KEY = "order"
 
 # Подпапки фичи: имя папки → название в меню. Порядок в словаре — порядок в меню; папки не из словаря идут после,
-# по алфавиту, с именем папки вместо названия (и предупреждением).
+# по алфавиту. Название такой папки sf-* — текст после ID в заголовке SF её index.md («## SF-PT-EXPORT. Выгрузка»),
+# иначе — имя папки (с предупреждением).
 FOLDER_TITLES = {
     "f": "Общие",
     "sf-list": "Список",
@@ -147,9 +160,16 @@ FEATURE_FILE_PREFIX = "Общие "
 GLOBAL_SF_TITLE = "Глобальные функциональности"
 GLOBAL_SF_DIR = "requirements/global"
 GLOBAL_SF_PREFIX = "sf-g-"
-# Папка → название в меню. Порядок в словаре — порядок в меню; папки не из словаря идут после, по алфавиту, с именем
-# папки вместо названия (и предупреждением).
-GLOBAL_SF_TITLES: dict[str, str] = {}             # у каждого продукта свои: [global_sf.titles] в rms.toml
+# Название в меню — текст после ID в заголовке SF в index.md папки («## SF-G-PAG. Пагинация {#sf-g-pag}»), иначе имя
+# папки (с предупреждением). Порядок в меню — порядок папок в списке; папки не из списка идут после, по алфавиту.
+GLOBAL_SF_ORDER = [
+    "sf-g-dict", "sf-g-catalog", "sf-g-table", "sf-g-pag", "sf-g-sort", "sf-g-search", "sf-g-filter",
+    "sf-g-columns", "sf-g-select", "sf-g-confirm", "sf-g-form", "sf-g-lock", "sf-g-session", "sf-g-toast",
+]
+
+# Название SF — текст после ID в заголовке SF в index.md («## SF-PT-CREATE. Создание записи {#sf-pt-create}»)
+SF_TITLE_RE = re.compile(
+    r"^#{1,6}[ \t]+SF-[A-Z0-9]+(?:-[A-Z0-9]+)*\.[ \t]+(?P<title>.+?)(?:[ \t]*\{[^}\n]*\})?[ \t]*$", re.MULTILINE)
 
 
 # ===========================================================================
@@ -252,73 +272,3 @@ CHANGES_LIMIT = 5
 JOURNAL_ENTRY_RE = re.compile(
     r"^- \[Версия (?P<version>[\d.]+) \((?P<when>\d\d\.\d\d\.\d{4} \d\d:\d\d(?::\d\d)?)(?:; (?P<files>[^)]*))?\)\]"
     r"\((?P<url>[^)]+)\)(?:\{[^}]*\})?\. [^:\n]+:[ \t]*(?P<author>.+?)[ \t]*$", re.MULTILINE)
-
-
-# ===========================================================================
-# НАСТРОЙКИ ПРОДУКТА (rms.toml в корне репозитория продукта)
-# ===========================================================================
-# Всё, что выше, — значения по умолчанию. Продукт может переопределить в rms.toml (все разделы необязательны):
-#
-#   [nav]
-#   items = [ { "О продукте" = "index.md" }, { "Требования" = [ "@global_sf", "@registry" ] } ]
-#                                      — неизменная часть меню (как блок nav в zensical.toml); "@registry" и "@global_sf"
-#                                        — места групп реестра и глобальных функциональностей
-#   [registry]   title, dir            — REGISTRY_TITLE, REGISTRY_DIR
-#   [dashboard]  page                  — DASHBOARD_PAGE
-#   [global_sf]  title, dir, prefix    — GLOBAL_SF_TITLE, GLOBAL_SF_DIR, GLOBAL_SF_PREFIX
-#   [global_sf.titles]                 — GLOBAL_SF_TITLES (папка = "название"; заменяет словарь целиком)
-#   [titles]     feature_file_prefix   — FEATURE_FILE_PREFIX
-#   [titles.folders], [titles.files]   — дополняют FOLDER_TITLES и FILE_TITLES: та же папка (файл) — новое название,
-#                                        новые — в конец словаря (порядок в меню)
-
-PRODUCT_NAV_MARKERS = {"@registry": REGISTRY, "@global_sf": GLOBAL_SF}
-
-
-class ProductSettingsError(ValueError):
-    """Ошибка в rms.toml: скрипты сообщают о ней и завершаются с кодом 1."""
-
-
-def _nav_items(items: list, where: str) -> list:
-    """Меню из rms.toml (как nav в zensical.toml) → формат NAV."""
-    result = []
-    for item in items:
-        if isinstance(item, str):
-            result.append(PRODUCT_NAV_MARKERS.get(item, item))
-        elif isinstance(item, dict) and len(item) == 1:
-            title, value = next(iter(item.items()))
-            if isinstance(value, list):
-                result.append((title, _nav_items(value, f"{where} → {title}")))
-            elif isinstance(value, str):
-                result.append((title, value))
-            else:
-                raise ProductSettingsError(f"rms.toml [nav] {where}: у пункта «{title}» значение не строка и не список")
-        else:
-            raise ProductSettingsError(f"rms.toml [nav] {where}: пункт должен быть строкой или {{ \"Название\" = … }}")
-    return result
-
-
-def _load_product_settings(path: Path) -> dict:
-    if not path.is_file():
-        return {}
-    try:
-        return tomllib.loads(path.read_text(encoding="utf-8"))
-    except tomllib.TOMLDecodeError as exc:
-        raise ProductSettingsError(f"rms.toml: некорректный TOML ({exc})") from exc
-
-
-try:
-    _product = _load_product_settings(PRODUCT_SETTINGS)
-    if "nav" in _product:
-        NAV = _nav_items(_product["nav"].get("items", []), "items")
-except ProductSettingsError as _exc:
-    raise SystemExit(f"ОШИБКА: {_exc}") from None     # сообщение в stderr, код возврата 1
-REGISTRY_TITLE = _product.get("registry", {}).get("title", REGISTRY_TITLE)
-REGISTRY_DIR = _product.get("registry", {}).get("dir", REGISTRY_DIR)
-DASHBOARD_PAGE = _product.get("dashboard", {}).get("page", DASHBOARD_PAGE)
-GLOBAL_SF_TITLE = _product.get("global_sf", {}).get("title", GLOBAL_SF_TITLE)
-GLOBAL_SF_DIR = _product.get("global_sf", {}).get("dir", GLOBAL_SF_DIR)
-GLOBAL_SF_PREFIX = _product.get("global_sf", {}).get("prefix", GLOBAL_SF_PREFIX)
-GLOBAL_SF_TITLES = dict(_product.get("global_sf", {}).get("titles", GLOBAL_SF_TITLES))
-FEATURE_FILE_PREFIX = _product.get("titles", {}).get("feature_file_prefix", FEATURE_FILE_PREFIX)
-FOLDER_TITLES = {**FOLDER_TITLES, **_product.get("titles", {}).get("folders", {})}
-FILE_TITLES = {**FILE_TITLES, **_product.get("titles", {}).get("files", {})}
