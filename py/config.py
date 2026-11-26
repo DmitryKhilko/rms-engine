@@ -272,8 +272,10 @@ ANCHOR_RE = re.compile(r"\{#(?P<id>[\w-]+)|\bid=[\"'](?P<html>[\w-]+)[\"']")
 REF_LINK_RE = re.compile(r"^\[(?P<label>[^\]]+)\]:[ \t]*<?(?P<url>[^>\s]+)>?", re.MULTILINE)
 INLINE_LINK_RE = re.compile(r"\]\((?P<url>[^)\s]+)\)")
 
-# «Последние изменения»: сколько записей журналов показывать
-CHANGES_LIMIT = 5
+# «Последние изменения»: записи журналов за последние CHANGES_DAYS календарных дней, считая сегодняшний. «Сегодня» —
+# по часовому поясу CHANGES_TIMEZONE (время записей журнала — время коммита по часам аналитика).
+CHANGES_DAYS = 10
+CHANGES_TIMEZONE = "Europe/Minsk"
 JOURNAL_ENTRY_RE = re.compile(
     r"^- \[Версия (?P<version>[\d.]+) \((?P<when>\d\d\.\d\d\.\d{4} \d\d:\d\d(?::\d\d)?)(?:; (?P<files>[^)]*))?\)\]"
     r"\((?P<url>[^)]+)\)(?:\{[^}]*\})?\. [^:\n]+:[ \t]*(?P<author>.+?)[ \t]*$", re.MULTILINE)

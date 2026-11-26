@@ -15,11 +15,13 @@
    неподтверждённые вопросы и допущения, битые ссылки. Выводятся все замечания, каждое — со ссылкой на место
    в требованиях. Группа с замечаниями раскрыта, без замечаний — свёрнута («Замечаний нет»). Коды, вопросы,
    допущения и ссылки проверяются в папках ATTENTION_DIRS (глобальные требования и реестр), остальное — по SF реестра.
-5. «Последние изменения» — последние записи журналов изменений глобальных требований и фич (папки ATTENTION_DIRS).
+5. «Последние изменения» — все записи журналов изменений глобальных требований и фич (папки ATTENTION_DIRS)
+   за последние CHANGES_DAYS календарных дней.
 
 Фичи, SF, их названия, статусы и приоритеты (у F — вычисленные) берёт common.registry() — тот же обход реестра, что
 у status.py и nav.py, поэтому фичи идут в том же порядке, что в меню.
-В блоке нет даты и времени: без изменений в требованиях страница не меняется и лишнего коммита нет.
+В блоке нет даты и времени сборки. Страница меняется, когда меняются требования или когда запись журнала выходит
+за период «Последних изменений» (это видно при следующей сборке).
 
 Все настройки — в py/config.py (раздел «Дашборд реестра»), оформление — custom/css/extra.css (раздел 12).
 Сторонние пакеты не нужны: только стандартная библиотека Python 3.10+.
@@ -34,11 +36,12 @@ import re
 import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from pathlib import Path
 
 from common import Feature, load, read, registry, rel, save, sf_title
-from config import (ACCEPTANCE_MARK, ANCHOR_RE, ARCHIVED_STATUS, ATTENTION_DIRS, CHANGES_LIMIT, DASHBOARD_BEGIN,
+from config import (ACCEPTANCE_MARK, ANCHOR_RE, ARCHIVED_STATUS, ATTENTION_DIRS, CHANGES_DAYS, CHANGES_TIMEZONE, DASHBOARD_BEGIN,
                     DASHBOARD_END, DASHBOARD_PAGE, DASHBOARD_RE, DOCS_DIR, DONE_STATUS, FR_FILE, FR_HEADING_RE,
                     FEATURE_TITLE_RE, GLOBAL_SF_DIR, HEADING_ANCHOR_RE, INDEX_NAME, INLINE_LINK_RE, JOURNAL_ENTRY_RE, NOTE_FINAL,
                     NOTE_KINDS, NOTE_OWNER_RE, NOTE_RE, NOTE_STATUS_RE, PRIORITY_ORDER, REF_LINK_RE,
@@ -304,16 +307,18 @@ def changes_block(features: list[Feature]) -> list[str]:
         for m in JOURNAL_ENTRY_RE.finditer(read(path)):
             fmt = "%d.%m.%Y %H:%M:%S" if m.group("when").count(":") == 2 else "%d.%m.%Y %H:%M"
             entries.append((datetime.strptime(m.group("when"), fmt), place(path, features), m))
-    entries.sort(key=lambda e: e[0], reverse=True)
+    since = datetime.now(ZoneInfo(CHANGES_TIMEZONE)).date() - timedelta(days=CHANGES_DAYS - 1)
+    entries = sorted((e for e in entries if e[0].date() >= since), key=lambda e: e[0], reverse=True)
+    lead = f"Записи журналов изменений требований к продукту за последние {CHANGES_DAYS} календарных дней."
     if not entries:
-        return ["## Последние изменения {#dash-changes}", "", "Записей в журналах изменений пока нет.", ""]
+        return ["## Последние изменения {#dash-changes}", "", lead, "", "Изменений за этот период нет.", ""]
     rows = "".join(
         f'<tr><td class="dash-when">{e[0]:%d.%m.%Y %H:%M}</td><td>{esc(e[1])}</td>'
         f'<td><a href="{esc(e[2].group("url"))}" target="_blank" rel="noopener">{esc(e[2].group("version"))}</a></td>'
         f'<td>{esc(e[2].group("files") or "")}</td><td>{esc(e[2].group("author"))}</td></tr>'
-        for e in entries[:CHANGES_LIMIT])
+        for e in entries)
     return ["## Последние изменения {#dash-changes}", "",
-            f"Последние записи журналов изменений глобальных требований и фич; версия — ссылка на коммит.", "",
+            lead, "",
             '<table class="dash-changes"><thead><tr><th>Когда</th><th>Раздел</th><th>Версия</th><th>Файлы</th>'
             f'<th>Редактор</th></tr></thead><tbody>{rows}</tbody></table>', ""]
 
