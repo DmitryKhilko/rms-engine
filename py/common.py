@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from config import (ARCHIVED_STATUS, BACKLOG_STATUS, DOCS_DIR, DONE_STATUS, FEATURE_TITLE_RE, FOLDER_TITLES,
-                    FRONT_MATTER_RE, H1_RE, IN_PROGRESS_STATUS, INDEX_NAME, ORDER_KEY, PRIORITY_LINE_RE,
+                    FRONT_MATTER_RE, GLOBAL_DIR, H1_RE, IN_PROGRESS_STATUS, INDEX_NAME, ORDER_KEY, PRIORITY_LINE_RE,
                     PRIORITY_ORDER, REGISTRY_DIR, SF_FOLDER_PREFIX, SF_STATUSES, SF_TITLE_RE, STATUS_LINE_RE)
 
 ORDER_RE = re.compile(rf"^{re.escape(ORDER_KEY)}:[ \t]*['\"]?(?P<order>-?\d+)['\"]?[ \t]*(?:#.*)?$", re.MULTILINE)
@@ -222,12 +222,14 @@ def feature_order(index: Path) -> int | None:
 
 
 def registry(warnings: list[str]) -> list[Feature]:
-    """Фичи реестра (подпапки REGISTRY_DIR с index.md) и их SF (подпапки sf-* с index.md) в порядке меню."""
+    """Фичи реестра (подпапки REGISTRY_DIR с index.md, кроме папки глобальных требований GLOBAL_DIR) и их SF
+    (подпапки sf-* с index.md) в порядке меню."""
     root = DOCS_DIR / REGISTRY_DIR
     if not root.is_dir():
         return []
     features = []
-    for folder in (p for p in root.iterdir() if p.is_dir() and (p / INDEX_NAME).is_file()):
+    skip = DOCS_DIR / GLOBAL_DIR
+    for folder in (p for p in root.iterdir() if p.is_dir() and p != skip and (p / INDEX_NAME).is_file()):
         feature = Feature(folder, feature_title(folder / INDEX_NAME, warnings), feature_order(folder / INDEX_NAME))
         subs = [p for p in folder.iterdir() if p.is_dir() and p.name.startswith(SF_FOLDER_PREFIX)
                 and (p / INDEX_NAME).is_file()]

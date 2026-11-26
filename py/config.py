@@ -110,13 +110,15 @@ NAV = [
 # на группе. Внутри группы сначала идут пункты REGISTRY_LEAD (в том же виде, что NAV), затем фичи.
 REGISTRY_TITLE = "Требования к продукту"
 REGISTRY_DIR = "requirements/features"
+# Глобальные требования лежат внутри папки реестра, но фичей не считаются: реестр эту папку пропускает
+GLOBAL_DIR = f"{REGISTRY_DIR}/global"
 REGISTRY_LEAD = [
     ("Глобальные требования", [
-        "requirements/global/index.md",
-        ("Дизайн-система", "requirements/global/design-system/index.md"),
-        ("Глобальные AR", "requirements/global/ar.md"),
-        ("Глобальные NFR", "requirements/global/nfr.md"),
-        ("Глобальные SR", "requirements/global/sr.md"),
+        f"{GLOBAL_DIR}/index.md",
+        ("Дизайн-система", f"{GLOBAL_DIR}/design-system/index.md"),
+        ("Глобальные AR", f"{GLOBAL_DIR}/ar.md"),
+        ("Глобальные NFR", f"{GLOBAL_DIR}/nfr.md"),
+        ("Глобальные SR", f"{GLOBAL_DIR}/sr.md"),
         GLOBAL_SF,
     ]),
 ]
@@ -161,7 +163,7 @@ FEATURE_FILE_PREFIX = "Общие "
 # Подпапки GLOBAL_SF_DIR с приставкой GLOBAL_SF_PREFIX и файлом index.md — глобальные функциональности. В меню они идут
 # на месте GLOBAL_SF прямо в группе «Глобальные требования», без своей группы. Внутри — как у подфункциональности
 # реестра: index.md, затем файлы по FILE_TITLES («DR», «FR», «UI»…).
-GLOBAL_SF_DIR = "requirements/global"
+GLOBAL_SF_DIR = GLOBAL_DIR
 GLOBAL_SF_PREFIX = "sf-g-"
 # Название в меню — текст после ID в заголовке SF в index.md папки («## SF-G-PAG. Пагинация {#sf-g-pag}»), иначе имя
 # папки (с предупреждением). Порядок — поле `order` в метаданных index.md (меньше — выше, как у фич), без него — после,
@@ -265,8 +267,8 @@ NOTE_OWNER_RE = re.compile(r"\*\*(?:Подтверждает|Решает)\*\*:[
 NOTE_KINDS = {"Q": "вопрос", "H": "допущение"}
 # Финальные статусы: пункт с таким статусом в «Неподтверждённые вопросы и допущения» не попадает
 NOTE_FINAL = {"Q": {"закрыт"}, "H": {"принято", "подтверждено", "отвергнуто"}}
-# Папки, где ищутся вопросы и допущения, повторяющиеся коды и битые ссылки (относительно docs/)
-ATTENTION_DIRS = ["requirements/global", "requirements/features"]
+# Папки, где ищутся вопросы и допущения, повторяющиеся коды, битые ссылки и записи журналов (относительно docs/)
+ATTENTION_DIRS = [REGISTRY_DIR]                      # глобальные требования — внутри неё
 HEADING_ANCHOR_RE = re.compile(r"^#{1,6}[ \t]+.*?\{#(?P<id>[\w-]+)[^}\n]*\}[ \t]*$", re.MULTILINE)
 ANCHOR_RE = re.compile(r"\{#(?P<id>[\w-]+)|\bid=[\"'](?P<html>[\w-]+)[\"']")
 REF_LINK_RE = re.compile(r"^\[(?P<label>[^\]]+)\]:[ \t]*<?(?P<url>[^>\s]+)>?", re.MULTILINE)
