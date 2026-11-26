@@ -1,0 +1,47 @@
+# Автоматический выпуск движка: после каждого push в main — тег vX.YY.ZZ, перенос плавающего тега линейки (v1)
+# и выпуск (Release) на GitHub со списком коммитов. Номер версии считает py/release.py по префиксам коммитов:
+# feat! или BREAKING CHANGE — новая линейка (v2.00.00), feat — новая возможность (v1.05.00), остальное — исправление
+# (v1.04.03), draft — без выпуска. Вручную теги ставить не нужно.
+name: release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write            # создать и перенести теги, создать выпуск
+
+concurrency:
+  group: release             # выпуски строго по очереди
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0     # вся история и все теги
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+
+      - name: Следующая версия
+        id: next
+        run: python py/release.py
+
+      - name: Теги и выпуск
+        if: steps.next.outputs.version != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.next.outputs.version }}
+          MAJOR: ${{ steps.next.outputs.major }}
+        run: |
+          git tag "$VERSION"
+          git tag -f "$MAJOR"
+          git push origin "$VERSION"
+          git push -f origin "$MAJOR"
+          gh release create "$VERSION" --title "$VERSION" --notes-file release-notes.md --latest
+          echo "Выпущена версия $VERSION; тег $MAJOR указывает на неё." >> "$GITHUB_STEP_SUMMARY"
