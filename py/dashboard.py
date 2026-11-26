@@ -18,6 +18,9 @@
 5. «Последние изменения» — все записи журналов изменений глобальных требований и фич (папки ATTENTION_DIRS)
    за последние CHANGES_DAYS календарных дней.
 
+Все разделы (заголовки второго уровня) при открытии страницы свёрнуты: класс .collapsed, его обрабатывает
+custom/js/sections.js.
+
 Фичи, SF, их названия, статусы и приоритеты (у F — вычисленные) берёт common.registry() — тот же обход реестра, что
 у status.py и nav.py, поэтому фичи идут в том же порядке, что в меню.
 В блоке нет даты и времени сборки. Страница меняется, когда меняются требования или когда запись журнала выходит
@@ -125,7 +128,7 @@ def progress_block(features: list[Feature]) -> list[str]:
                     f'{feature_link(f)}<small>{esc(info)}</small></div><div class="dash-bar">{segments}</div>'
                     f'<div class="dash-progress__done">реализовано <b>{done} из {len(active)}</b></div></div>')
     legend = "".join(f'<span class="dash-{STATUS_CSS[s]}"><i></i>{esc(s)}</span>' for s in order)
-    return ["## Прогресс по F {#dash-progress}", "",
+    return ["## Прогресс по F {#dash-progress .collapsed}", "",
             "Доля SF, включенных в F, в каждом статусе; SF в архиве не учитываются.", "",
             '<div class="dash-progress" markdown="block">' + "".join(rows) + "</div>", "",
             f'<div class="dash-legend">{legend}</div>', ""]
@@ -144,7 +147,7 @@ def matrix_block(features: list[Feature]) -> list[str]:
         body.append(f"<tr><th>{esc(p)}</th>{tds}<td><b>{total}</b></td></tr>")
     sums = "".join(f"<td>{sum(cells[(p, s)] for p in rows_keys)}</td>" for s in SF_STATUSES)
     body.append(f'<tr class="dash-sum"><th>Всего</th>{sums}<td>{len(subs)}</td></tr>')
-    return ["## Приоритет × статус SF {#dash-priority}", "", "Число SF каждого приоритета в каждом статусе.", "",
+    return ["## Приоритет × статус SF {#dash-priority .collapsed}", "", "Число SF каждого приоритета в каждом статусе.", "",
             f'<table class="dash-matrix"><thead><tr><th>Приоритет</th>{head}<th>Всего</th></tr></thead>'
             f'<tbody>{"".join(body)}</tbody></table>', ""]
 
@@ -284,7 +287,7 @@ def attention_block(features: list[Feature]) -> list[str]:
               check_links(features)]
     bad = [c for c in checks if c.count]
     hint = f"Групп с замечаниями: {len(bad)}, замечаний: {sum(c.count for c in bad)}." if bad else "Замечаний нет."
-    lines = ["## Требует внимания {#dash-attention}", "", hint, ""]
+    lines = ["## Требует внимания {#dash-attention .collapsed}", "", hint, ""]
     for c in checks:
         if c.count:
             lines += [f'<details class="warning dash-check" open markdown>',
@@ -311,13 +314,13 @@ def changes_block(features: list[Feature]) -> list[str]:
     entries = sorted((e for e in entries if e[0].date() >= since), key=lambda e: e[0], reverse=True)
     lead = f"Записи журналов изменений требований к продукту за последние {CHANGES_DAYS} календарных дней."
     if not entries:
-        return ["## Последние изменения {#dash-changes}", "", lead, "", "Изменений за этот период нет.", ""]
+        return ["## Последние изменения {#dash-changes .collapsed}", "", lead, "", "Изменений за этот период нет.", ""]
     rows = "".join(
         f'<tr><td class="dash-when">{e[0]:%d.%m.%Y %H:%M}</td><td>{esc(e[1])}</td>'
         f'<td><a href="{esc(e[2].group("url"))}" target="_blank" rel="noopener">{esc(e[2].group("version"))}</a></td>'
         f'<td>{esc(e[2].group("files") or "")}</td><td>{esc(e[2].group("author"))}</td></tr>'
         for e in entries)
-    return ["## Последние изменения {#dash-changes}", "",
+    return ["## Последние изменения {#dash-changes .collapsed}", "",
             lead, "",
             '<table class="dash-changes"><thead><tr><th>Когда</th><th>Раздел</th><th>Версия</th><th>Файлы</th>'
             f'<th>Редактор</th></tr></thead><tbody>{rows}</tbody></table>', ""]
